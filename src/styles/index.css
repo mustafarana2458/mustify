@@ -1,0 +1,232 @@
+@import '@fontsource-variable/figtree';
+@import 'tailwindcss';
+
+/*
+ * Design tokens, values from docs/UI-SPEC.md §2, with my own naming and my own accent.
+ * The surface pattern from the spec: every interactive surface has base / hover / press.
+ */
+@theme {
+  --font-sans: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Surfaces (spec §2.1) */
+  --color-app: #000000; /* chrome + gaps between panels */
+  --color-surface: #121212;
+  --color-surface-hover: #1f1f1f;
+  --color-surface-press: #000000;
+  --color-elevated: #1f1f1f;
+  --color-elevated-hover: #2a2a2a;
+  --color-elevated-press: #191919;
+  --color-tint: #ffffff1a;
+  --color-tint-hover: #ffffff24;
+  --color-tint-press: #ffffff36;
+
+  /* Text / icons */
+  --color-fg: #ffffff;
+  --color-fg-muted: #b3b3b3;
+  --color-icon-muted: #7c7c7c;
+  --color-divider: #292929;
+  --color-danger: #f3727f;
+  --color-warning: #ffa42b;
+  --color-info: #539df5;
+
+  /*
+   * Accent: user-selectable (Settings → Appearance). These are the defaults; at runtime
+   * store/appearance.ts overwrites them on <html> with values derived from the chosen colour.
+   *   accent-ink: the accent used as TEXT/ICON colour, adjusted for ≥3:1 contrast on the page.
+   *   on-accent:  black or white text on an accent fill, whichever reads better.
+   */
+  --color-accent: #1ed7a5;
+  --color-accent-hover: #4be3ba;
+  --color-accent-press: #17b88c;
+  --color-on-accent: #000000;
+  --color-accent-ink: #1ed7a5;
+  --color-on-accent-ink: #000000;
+
+  /* Home header gradient start (neutral unless "Tint backgrounds with accent" is on). */
+  --color-header: #ffffff1f;
+  /* Panel outline, only visible in the Darker theme where panels and gaps are both black. */
+  --color-panel-border: transparent;
+
+  /* Radii (spec §2.4) */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 16px;
+
+  /* Shadows (spec §2.5) */
+  --shadow-overlay: 0 4px 12px 0 #0000004d;
+  --shadow-card: 0 16px 24px #0000004d, 0 6px 8px #00000033;
+  --shadow-play: 0 8px 8px #0000004d;
+
+  /* Motion (spec §2.6) */
+  --ease-productive: cubic-bezier(0.3, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.8, 0, 1, 1);
+}
+
+/*
+ * Theme modes, Background tint and "Tint backgrounds with accent" are generated in
+ * src/theme/palette.ts and written onto <html> as inline CSS variables (overriding the dark
+ * defaults above). Keeping one source avoids CSS and JS palettes drifting apart.
+ */
+
+:root {
+  --dur-hover-in: 50ms;
+  --dur-fast: 150ms;
+  --dur-exit: 200ms;
+  --dur-enter: 250ms;
+  --dur-slow: 300ms;
+  color-scheme: dark;
+}
+
+/* "Now playing" equaliser bars in track rows (my own animation). */
+@keyframes eq-bar {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.eq-bar {
+  transform-origin: bottom;
+  animation: eq-bar 0.9s ease-in-out infinite;
+}
+
+/* Mobile full-screen player slides up from the bottom. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+.sheet-up {
+  animation: sheet-up 0.3s var(--ease-enter);
+}
+
+/* Launch splash (components/Splash.tsx). */
+@keyframes splash-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes splash-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes splash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.splash-pop {
+  animation: splash-pop 0.4s var(--ease-enter) both;
+}
+.splash-draw {
+  stroke-dasharray: 1;
+  animation: splash-draw 0.5s 0.15s var(--ease-productive) both;
+}
+.splash-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: splash-pop 0.3s 0.55s var(--ease-enter) both;
+}
+.splash-name {
+  animation: splash-rise 0.35s 0.25s var(--ease-enter) both;
+}
+.splash-fade {
+  animation: splash-rise 0.35s 0.55s var(--ease-enter) both;
+}
+
+/* Smooth theme/accent switches on the big surfaces only (cheap, no layout work). */
+body,
+#root > * {
+  transition:
+    background-color var(--dur-slow) var(--ease-productive),
+    color var(--dur-slow) var(--ease-productive);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+#root {
+  /* Dynamic viewport height: follows mobile browser toolbars showing/hiding. */
+  height: 100dvh;
+}
+
+html,
+body {
+  /* No rubber-band bounce / pull-to-refresh on the page itself; panels scroll inside. */
+  overscroll-behavior: none;
+  overflow: hidden;
+}
+
+body {
+  /* No grey flash on tap, and no double-tap-to-zoom delay. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  margin: 0;
+  background: var(--color-app);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Native scrollbars are hidden everywhere. Scrollable panels use <ScrollArea>, which draws its
+ * own thin overlay thumb (spec §1.4). Horizontal rows use <HScroller> with arrows + fades.
+ */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Panel view transitions: quick cross-fade using the spec's motion tokens. */
+::view-transition-group(*) {
+  animation-duration: var(--dur-slow);
+  animation-timing-function: var(--ease-productive);
+}
+
+/* Keyboard-only focus rings (spec §4.5) */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--color-accent-ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

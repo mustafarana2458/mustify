@@ -1,0 +1,41 @@
+# Netlify deploy settings for Mustify.
+# In the Netlify UI also set the environment variable VITE_SPOTIFY_CLIENT_ID (used at build time).
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# Single-page app: every path that isn't a real file (e.g. /callback?code=…, /album/123)
+# gets index.html, and the app's router takes over. Real files (JS, icons, sw.js) win
+# because this rule isn't forced.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# The service worker and manifest must always be revalidated so updates reach users.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+    Cache-Control = "no-cache"
+
+# Hashed build assets never change: cache for a year.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Content-Type-Options = "nosniff"

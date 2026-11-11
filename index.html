@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="%APP_DESCRIPTION%" />
+    <meta name="author" content="%APP_AUTHOR%" />
+    <!-- Installed (home-screen) app: full screen, content drawn under a translucent status bar
+         (the layout pads for it with env(safe-area-inset-top)). -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="%APP_NAME%" />
+    <!-- The manifest link is injected by vite-plugin-pwa. -->
+    <!-- Replaced at runtime with a version in your chosen accent colour (store/appearance.ts). -->
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <title>%APP_NAME%</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
