@@ -1,6 +1,8 @@
 import { Check, Pause, Shuffle } from 'lucide-react';
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import { APP_NAME } from '../brand/info';
 import { Button } from '../components/Button';
+import { LogoMark } from '../components/Logo';
 import { Chip } from '../components/Chip';
 import { IconButton } from '../components/IconButton';
 import { Slider } from '../components/Slider';
@@ -136,6 +138,15 @@ export function AppearancePage() {
           {palette.vars['--color-accent-ink'] !== accent &&
             ' Accent-coloured text and icons are adjusted slightly so they stay readable on these backgrounds.'}
         </p>
+
+        <div className="mt-4 flex items-center gap-3 rounded-md bg-elevated p-3">
+          {/* Preview of the app icon in the current accent (same mark the generated icons use). */}
+          <LogoMark size={40} />
+          <p className="text-xs text-fg-muted">
+            The app icon uses this colour too. To update the home-screen icon on iPhone, remove {APP_NAME} from your home
+            screen and add it again from Safari.
+          </p>
+        </div>
       </Section>
 
       <Section title="Theme" description="Rose Dark and Blossom Light build their colours from your accent, so switching accents re-colours them.">

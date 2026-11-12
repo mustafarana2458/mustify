@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { markSvg } from '../brand/mark';
+import { updateAppIcons } from '../brand/dynamicIcons';
 import { normalizeHex } from '../lib/color';
 import { generatePalette, THEMES, type ThemeMode } from '../theme/palette';
 
@@ -76,11 +76,8 @@ export function applyAppearance(input: Input) {
   root.dataset.theme = input.theme;
   root.style.colorScheme = palette.kind;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.vars['--color-app']);
-  // The browser-tab icon follows your accent too.
-  const favicon = markSvg({ bg: palette.vars['--color-accent'], fg: palette.vars['--color-on-accent'] });
-  document
-    .querySelector('link[rel="icon"]')
-    ?.setAttribute('href', `data:image/svg+xml,${encodeURIComponent(favicon)}`);
+  // Favicon, apple-touch-icon and manifest icons follow the accent (static teal files for default).
+  updateAppIcons(palette.vars['--color-accent'], palette.vars['--color-on-accent']);
 }
 
 /** Apply now (before first render, so there is no flash) and on every change. */
