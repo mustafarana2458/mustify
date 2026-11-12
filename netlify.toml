@@ -8,6 +8,28 @@
 [build.environment]
   NODE_VERSION = "24"
 
+# Jamendo downloads: same-origin proxy (Jamendo's storage sends no CORS headers).
+# Must come before the SPA rule (first match wins). Mirrors vercel.json.
+[[redirects]]
+  from = "/jamendo-dl/prod-1/*"
+  to = "https://prod-1.storage.jamendo.com/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/jamendo-dl/prod-2/*"
+  to = "https://prod-2.storage.jamendo.com/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/jamendo-dl/prod-3/*"
+  to = "https://prod-3.storage.jamendo.com/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/jamendo-dl/prod-4/*"
+  to = "https://prod-4.storage.jamendo.com/:splat"
+  status = 200
+
 # Single-page app: every path that isn't a real file (e.g. /callback?code=…, /album/123)
 # gets index.html, and the app's router takes over. Real files (JS, icons, sw.js) win
 # because this rule isn't forced.

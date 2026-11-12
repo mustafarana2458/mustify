@@ -117,6 +117,30 @@ export function jamendoAttribution(t: JTrack): Attribution {
 export const jamendoId = (t: JTrack) => `jamendo:${t.id}`;
 const cover = (t: JTrack) => t.album_image || t.image || undefined;
 
+/*
+ * Jamendo's storage servers send no CORS headers, so downloads go through a same-origin proxy:
+ *   https://prod-N.storage.jamendo.com/<path>  →  /jamendo-dl/prod-N/<path>   (rewrite, N = 1–4)
+ *   any other prod-N storage host               →  /api/jamendo-download?url=… (Edge Function)
+ * See vercel.json, api/jamendo-download.ts and the dev proxy in vite.config.ts.
+ * Streaming doesn't need this: <audio> plays cross-origin files without CORS.
+ */
+const STORAGE_HOST = /^prod-(\d+)\.storage\.jamendo\.com$/;
+const REWRITTEN = new Set([1, 2, 3, 4]); // keep in sync with api/_jamendo.ts
+
+export function proxiedJamendoUrl(raw: string): string {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return raw;
+  }
+  const m = u.protocol === 'https:' ? u.hostname.match(STORAGE_HOST) : null;
+  if (!m) return raw; // not a Jamendo storage URL: leave it alone
+  const n = Number(m[1]);
+  if (REWRITTEN.has(n)) return `/jamendo-dl/prod-${n}${u.pathname}${u.search}`;
+  return `/api/jamendo-download?url=${encodeURIComponent(u.href)}`;
+}
+
 /** Download spec, or null when the artist/licence doesn't allow downloads. */
 export function jamendoDownloadSpec(t: JTrack): DownloadSpec | null {
   if (!t.audiodownload_allowed || !t.audiodownload) return null;
@@ -128,8 +152,10 @@ export function jamendoDownloadSpec(t: JTrack): DownloadSpec | null {
     album: t.album_name || undefined,
     durationMs: t.duration * 1000,
     attribution: jamendoAttribution(t),
-    audioUrl: t.audiodownload,
-    coverUrl: cover(t),
+    // Only reached when audiodownload_allowed is true (checked above).
+    audioUrl: proxiedJamendoUrl(t.audiodownload),
+    coverUrl: cover(t), // usercontent.jamendo.com allows CORS: no proxy needed
+    mime: 'audio/mpeg', // we request mp32
   };
 }
 

@@ -123,10 +123,17 @@ function setDownload(id: string, patch: Partial<DownloadState> | null) {
   });
 }
 
-async function fetchWithProgress(url: string, onProgress: (loaded: number, total: number) => void): Promise<Blob> {
+async function fetchWithProgress(
+  url: string,
+  onProgress: (loaded: number, total: number) => void,
+  mimeHint?: string,
+): Promise<Blob> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Download failed (${res.status}).`);
-  const type = res.headers.get('Content-Type') || 'audio/mpeg';
+  // Trust the server's type only if it's actually audio (Jamendo labels MP3s as text/html,
+  // and a blob typed text/html won't play on iOS).
+  const served = res.headers.get('Content-Type') ?? '';
+  const type = /^audio\//i.test(served) ? served.split(';')[0] : (mimeHint ?? 'audio/mpeg');
   const total = Number(res.headers.get('Content-Length')) || 0;
   if (!res.body) return new Blob([await res.arrayBuffer()], { type });
   const reader = res.body.getReader();
@@ -165,7 +172,7 @@ export async function downloadTrack(spec: DownloadSpec): Promise<void> {
   setDownload(id, { id, title: spec.title, loaded: 0, total: 0, status: 'downloading', error: undefined });
   try {
     const [audio, cover] = await Promise.all([
-      fetchWithProgress(spec.audioUrl, (loaded, total) => setDownload(id, { loaded, total })),
+      fetchWithProgress(spec.audioUrl, (loaded, total) => setDownload(id, { loaded, total }), spec.mime),
       fetchCover(spec.coverUrl),
     ]);
     setDownload(id, { status: 'saving' });

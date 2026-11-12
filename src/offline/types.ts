@@ -74,6 +74,8 @@ export interface DownloadSpec {
   attribution?: Attribution;
   audioUrl: string;
   coverUrl?: string;
+  /** Expected audio type, used when the server labels the file wrongly (Jamendo says text/html). */
+  mime?: string;
 }
 
 /** Player URI for an offline-section track (same for its stream and its download). */

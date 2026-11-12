@@ -5,6 +5,15 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { APP_DESCRIPTION, APP_NAME, AUTHOR } from './src/brand/info.ts';
 import { DEFAULT_MARK_BG } from './src/brand/mark.ts';
+import { Readable } from 'node:stream';
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
+import {
+  audioContentType,
+  isAllowedJamendoUrl,
+  JAMENDO_STORAGE_HOST,
+  PASS_THROUGH_HEADERS,
+  REWRITTEN_HOST_NUMBERS,
+} from './api/_jamendo.ts';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
@@ -21,11 +30,66 @@ function brandHtml(): Plugin {
   };
 }
 
+/**
+ * Local equivalents of the Vercel setup (vercel.json + api/jamendo-download.ts), so Jamendo
+ * downloads also work in `npm run dev` / `npm run preview`:
+ *   /jamendo-dl/prod-N/...        → https://prod-N.storage.jamendo.com/... (proxy)
+ *   /api/jamendo-download?url=…   → same allowlisted streaming fetch as the Edge Function
+ */
+const jamendoProxy = Object.fromEntries(
+  REWRITTEN_HOST_NUMBERS.map((n) => [
+    `/jamendo-dl/prod-${n}`,
+    {
+      target: `https://prod-${n}.storage.jamendo.com`,
+      changeOrigin: true,
+      rewrite: (path: string) => path.replace(new RegExp(`^/jamendo-dl/prod-${n}`), '') || '/',
+    },
+  ]),
+);
+
+function jamendoDownloadMiddleware(): Plugin {
+  const handle = async (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => {
+    const target = isAllowedJamendoUrl(new URL(req.url ?? '', 'http://local').searchParams.get('url'));
+    if (!target) {
+      res.statusCode = 403;
+      res.end('Only Jamendo storage URLs can be fetched here.');
+      return;
+    }
+    try {
+      const range = req.headers.range;
+      const upstream = await fetch(target, { headers: range ? { range } : {}, redirect: 'follow' });
+      if (!JAMENDO_STORAGE_HOST.test(new URL(upstream.url).hostname)) {
+        res.statusCode = 502;
+        res.end('Unexpected redirect.');
+        return;
+      }
+      res.statusCode = upstream.status;
+      for (const h of PASS_THROUGH_HEADERS) {
+        const v = upstream.headers.get(h);
+        if (v) res.setHeader(h, v);
+      }
+      res.setHeader('content-type', audioContentType(upstream.headers.get('content-type'), target));
+      if (!upstream.body) return void res.end();
+      Readable.fromWeb(upstream.body as unknown as NodeReadableStream).pipe(res);
+    } catch {
+      res.statusCode = 502;
+      res.end('Jamendo storage could not be reached.');
+    }
+  };
+  return {
+    name: 'jamendo-download-dev',
+    configureServer: (server) => void server.middlewares.use('/api/jamendo-download', (req, res) => void handle(req, res)),
+    configurePreviewServer: (server) =>
+      void server.middlewares.use('/api/jamendo-download', (req, res) => void handle(req, res)),
+  };
+}
+
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     brandHtml(),
+    jamendoDownloadMiddleware(),
     VitePWA({
       // New versions install in the background and take over on the next launch/navigation.
       // (No forced reload, so playback is never interrupted by an update.)
@@ -88,6 +152,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   server: {
+    proxy: jamendoProxy,
     // Spotify does not accept "localhost" redirect URIs, so the loopback IP is used.
     // strictPort: fail rather than silently moving to 5174, which would break the redirect URI.
     host: '127.0.0.1',
@@ -95,6 +160,7 @@ export default defineConfig({
     strictPort: true,
   },
   preview: {
+    proxy: jamendoProxy,
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
