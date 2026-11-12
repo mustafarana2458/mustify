@@ -26,6 +26,7 @@ export interface Device {
   is_active: boolean;
   volume_percent: number | null;
   supports_volume: boolean;
+  is_restricted?: boolean;
 }
 
 export interface PlayerState {
@@ -61,6 +62,11 @@ export interface PlayerState {
   searchingDevices: boolean;
   /** The "open Spotify on this phone" banner is on screen (so we don't also toast it). */
   deviceHintVisible: boolean;
+  /**
+   * Phone: you pressed play / "Play here" but this phone's Spotify app isn't available, so
+   * the "Open Spotify" hint is shown (instead of falling back to a computer).
+   */
+  phoneDeviceMissing: boolean;
 
   /** Bumped by every command / SDK event so stale polls can be discarded. */
   seq: number;
@@ -86,6 +92,7 @@ export const usePlayer = create<PlayerState>()(() => ({
   queue: [],
   searchingDevices: false,
   deviceHintVisible: false,
+  phoneDeviceMissing: false,
   seq: 0,
 }));
 
@@ -97,8 +104,6 @@ export const selectIsLocal = (s: PlayerState) =>
 export const selectPlaysHere = (s: PlayerState) => s.engine === 'local' || selectIsLocal(s);
 
 /** Name of the active device when it is some other device (for the "Playing on …" strip). */
-export const selectRemoteDeviceName = (s: PlayerState) =>
-  s.engine === 'spotify' && s.device && s.device.is_active && s.device.id !== s.sdkDeviceId ? s.device.name : null;
 
 export function currentPositionMs(s: PlayerState = usePlayer.getState()): number {
   const elapsed = s.isPlaying ? Date.now() - s.updatedAt : 0;

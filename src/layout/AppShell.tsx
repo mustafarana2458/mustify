@@ -7,7 +7,9 @@ import { loadOffline } from '../offline/store';
 import { DiagnosticsOverlay } from '../components/LayoutDiagnostics';
 import { ScrollArea } from '../components/ScrollArea';
 import { Toaster } from '../components/Toaster';
-import { selectRemoteDeviceName, usePlayer } from '../player/store';
+import { playHere } from '../player/controls';
+import { usePlayer } from '../player/store';
+import { selectOtherDeviceName } from '../player/target';
 import { usePlayerSync } from '../player/sync';
 import { useIsMobileLayout, useMediaQuery } from '../lib/useMediaQuery';
 import { MobileLayout } from './MobileLayout';
@@ -59,7 +61,7 @@ function DesktopLayout() {
   const [dragging, setDragging] = useState(false);
   // When another device is playing, a 24px accent strip names it (spec §1.5 observed a
   // 24px "--bottom-bar-height" variant under the player bar).
-  const remoteDevice = usePlayer(selectRemoteDeviceName);
+  const remoteDevice = usePlayer(selectOtherDeviceName);
 
   // The main panel's scroller, shared with pages (sticky headers, infinite loading).
   const [mainScroll, setMainScroll] = useState<HTMLDivElement | null>(null);
@@ -154,6 +156,13 @@ function DesktopLayout() {
         >
           <Speaker className="size-4" aria-hidden />
           Playing on {remoteDevice}
+          <button
+            type="button"
+            onClick={() => void playHere()}
+            className="ml-2 rounded-full bg-on-accent px-3 py-0.5 text-xs font-bold text-accent transition-transform duration-150 hover:scale-[1.04] active:scale-100"
+          >
+            Play here
+          </button>
         </div>
       )}
     </div>

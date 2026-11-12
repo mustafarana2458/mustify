@@ -1,4 +1,4 @@
-import { Download, ExternalLink, House, Library, Loader2, Pause, Play, Search, Smartphone } from 'lucide-react';
+import { Download, ExternalLink, House, Library, Loader2, Pause, Play, Search, Smartphone, Speaker } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { Artwork } from '../components/Artwork';
@@ -7,9 +7,10 @@ import { DevicePicker, NO_DEVICE_HINT } from '../components/DevicePicker';
 import { IconButton } from '../components/IconButton';
 import { LikeButton } from '../components/LikeButton';
 import { useHeaderColor } from '../lib/dominantColor';
-import { togglePlay } from '../player/controls';
+import { playHere, togglePlay } from '../player/controls';
 import { getLastDevice } from '../player/lastDevice';
 import { selectIsLocal, usePlayer } from '../player/store';
+import { selectOtherDeviceName } from '../player/target';
 import { usePlayback } from '../player/usePosition';
 import { useAppearance } from '../store/appearance';
 import { FullScreenPlayer } from './FullScreenPlayer';
@@ -205,7 +206,19 @@ function FloatingPlayer({ onOpen, onHeight }: { onOpen: () => void; onHeight: (h
   const item = usePlayer((s) => s.item);
   const mode = usePlayer((s) => s.mode);
   const device = usePlayer((s) => s.device);
-  const content = item ? <MiniPlayer onOpen={onOpen} /> : mode === 'remote' && !device ? <DeviceHint /> : null;
+  const phoneMissing = usePlayer((s) => s.phoneDeviceMissing);
+  const otherDevice = usePlayer(selectOtherDeviceName);
+  // Stack, top to bottom: "Playing on <device> · Play here", the "Open Spotify" hint (this
+  // phone's Spotify app wasn't found; never fall back to a computer), the mini player.
+  const showHint = mode === 'remote' && (phoneMissing || (!item && !device));
+  const content =
+    otherDevice || showHint || item ? (
+      <div className="flex flex-col gap-2">
+        {otherDevice && !showHint && <OtherDeviceBar name={otherDevice} />}
+        {showHint && <DeviceHint />}
+        {item && <MiniPlayer onOpen={onOpen} />}
+      </div>
+    ) : null;
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -297,6 +310,27 @@ function MiniPlayer({ onOpen }: { onOpen: () => void }) {
       {/* On the bottom edge, inset 18px so it stays clear of the 22px rounded corners. */}
       <div className="absolute inset-x-[18px] bottom-0 h-0.5 overflow-hidden rounded-full bg-white/25" aria-hidden>
         <div className="h-full rounded-full bg-white" style={{ width: `${pct}%` }} />
+      </div>
+    </Card>
+  );
+}
+
+/** Another device is playing: say which, and offer to move playback to this phone. */
+function OtherDeviceBar({ name }: { name: string }) {
+  return (
+    <Card tint="#282828">
+      <div role="status" className="flex min-h-12 items-center gap-2 py-1 pr-1.5 pl-3 text-sm">
+        <Speaker className="size-4 shrink-0 text-accent" aria-hidden />
+        <p className="min-w-0 flex-1 truncate">
+          Playing on <span className="font-bold">{name}</span>
+        </p>
+        <button
+          type="button"
+          onClick={() => void playHere()}
+          className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-accent px-4 text-sm font-bold text-on-accent active:bg-accent-press"
+        >
+          Play here
+        </button>
       </div>
     </Card>
   );

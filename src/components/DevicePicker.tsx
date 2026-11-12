@@ -12,6 +12,7 @@ import {
 import { NO_DEVICE_MESSAGE, refreshDevices, transferTo } from '../player/controls';
 import { SDK_DEVICE_NAME } from '../player/sdk';
 import { usePlayer, type Device } from '../player/store';
+import { thisDeviceId } from '../player/target';
 import { IconButton } from './IconButton';
 import { Menu, type MenuItem } from './Menu';
 
@@ -42,6 +43,7 @@ export function DevicePicker({ size = 'sm', align = 'end' }: { size?: 'sm' | 'md
   const activeId = usePlayer((s) => s.device?.id ?? null);
   const sdkDeviceId = usePlayer((s) => s.sdkDeviceId);
   const remoteActive = usePlayer((s) => !!s.device && s.device.id !== s.sdkDeviceId);
+  const mine = usePlayer((s) => thisDeviceId(s));
 
   // This browser may not be in Spotify's list yet right after the SDK connects.
   const list: Device[] =
@@ -54,7 +56,9 @@ export function DevicePicker({ size = 'sm', align = 'end' }: { size?: 'sm' | 'md
     .map((d) => ({
       id: d.id,
       label: d.id === sdkDeviceId ? 'This browser' : d.name,
-      description: d.id === activeId ? 'Listening on' : d.type,
+      description: [d.id === mine && d.id !== sdkDeviceId ? 'This phone' : null, d.id === activeId ? 'Listening on' : d.type]
+        .filter(Boolean)
+        .join(' · '),
       icon: ICONS[d.type.toLowerCase()] ?? Speaker,
       checked: d.id === activeId,
       onSelect: () => d.id !== activeId && void transferTo(d.id),

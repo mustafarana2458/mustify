@@ -11,7 +11,8 @@ import {
   previous as localPrevious,
   stopLocal,
 } from '../offline/engine';
-import { getLastDevice, setLastDevice } from './lastDevice';
+import { setLastDevice } from './lastDevice';
+import { isSmartphone, setSessionChoice, targetDeviceId, thisDeviceId } from './target';
 import { activateSdkElement, getSdkPlayer } from './sdk';
 import {
   currentPositionMs,
@@ -116,7 +117,8 @@ export async function refreshPlayback(): Promise<void> {
     return;
   }
   if (usePlayer.getState().seq !== seq || isLocalEngine()) return;
-  if (res?.device?.id && res.device.id !== usePlayer.getState().sdkDeviceId) {
+  // Remember the phone's own Spotify app (the only kind of device "this device" can be on a phone).
+  if (res?.device?.id && isSmartphone(res.device.type)) {
     setLastDevice({ id: res.device.id, name: res.device.name });
   }
   if (!res) {
@@ -169,22 +171,19 @@ export function findDevices(): Promise<void> {
   searching = (async () => {
     for (let attempt = 0; attempt < DEVICE_RETRY_ATTEMPTS; attempt++) {
       if (attempt > 0) await new Promise((r) => setTimeout(r, DEVICE_RETRY_EVERY_MS));
-      const devices = await refreshDevices();
-      if (usePlayer.getState().device) return; // something is already active
-      const active = devices.find((d) => d.is_active && d.id);
-      if (active) {
-        await refreshPlayback();
-        return;
-      }
-      const last = getLastDevice();
-      const remembered = last && devices.find((d) => d.id === last.id);
-      if (remembered?.id) {
+      await refreshDevices();
+      const s = usePlayer.getState();
+      const mine = thisDeviceId(s);
+      if (mine) usePlayer.setState({ phoneDeviceMissing: false });
+      if (s.device) return; // something is already active (the "Playing on ..." bar offers Play here)
+      // Nothing active: quietly select THIS phone (paused), never some other device.
+      if (mine) {
         try {
-          await api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [remembered.id], play: false }) });
+          await api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [mine], play: false }) });
           await refreshPlayback();
           return;
         } catch (e) {
-          console.warn('[player] transfer to remembered device failed', e);
+          console.warn('[player] selecting this phone failed', e);
         }
       }
     }
@@ -211,6 +210,12 @@ export function togglePlay() {
   const s = usePlayer.getState();
   if (!s.item) return;
   activateSdkElement();
+  // Resuming while another device is the active one: resume HERE (or on this session's chosen
+  // device) instead of on that device. Pausing always pauses wherever it plays.
+  if (!s.isPlaying && s.engine === 'spotify') {
+    const target = targetDeviceId(s);
+    if (target !== s.device?.id) return moveAndPlay(target);
+  }
   const local = selectIsLocal(s);
   const sdk = getSdkPlayer();
   return command(
@@ -221,6 +226,44 @@ export function togglePlay() {
         : api(`/me/player/${s.isPlaying ? 'pause' : 'play'}${deviceQuery()}`, { method: 'PUT' }),
     !local,
   );
+}
+
+/** Phone without its Spotify app available: show "Open Spotify", never fall back elsewhere. */
+function reportMissingDevice() {
+  const s = usePlayer.getState();
+  if (s.mode === 'remote') {
+    usePlayer.setState({ phoneDeviceMissing: true });
+    void findDevices();
+    showNoDeviceHint();
+  } else {
+    toast('The web player is still starting. Try again in a moment.');
+  }
+}
+
+/** Transfer playback to `target` and keep playing there (PUT /me/player, play=true). */
+async function moveAndPlay(target: string | null) {
+  if (!target) return reportMissingDevice();
+  const s = usePlayer.getState();
+  const device = s.devices.find((d) => d.id === target) ?? null;
+  await command(
+    {
+      isPlaying: true,
+      device: device ? { ...device, is_active: true } : s.device,
+      positionMs: currentPositionMs(s),
+      updatedAt: Date.now(),
+    },
+    () => api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [target], play: true }) }),
+  );
+  setTimeout(() => void refreshDevices(), 800);
+}
+
+/** "Play here": move whatever is playing to THIS device (clears any manual choice). */
+export async function playHere() {
+  stopLocal();
+  activateSdkElement();
+  setSessionChoice(null);
+  if (usePlayer.getState().mode === 'remote') await refreshDevices();
+  await moveAndPlay(thisDeviceId());
 }
 
 export function next() {
@@ -346,51 +389,57 @@ export async function play(req: PlayRequest) {
   // Starting Spotify playback hands the player back from the Offline engine.
   stopLocal();
   activateSdkElement();
+  // Always play on THIS device (or this session's manual choice), never on "whatever was last
+  // active". Phones re-read the device list first: the Spotify app comes and goes on iOS.
+  if (usePlayer.getState().mode === 'remote' || !usePlayer.getState().devices.length) await refreshDevices();
   const s = usePlayer.getState();
-  // Remote mode with nothing active: try the remembered device (or the only one available)
-  // before asking you to open Spotify.
-  let targetDevice: string | undefined;
-  if (!s.device && !s.sdkDeviceId) {
-    if (s.mode !== 'remote') {
-      toast('The web player is still starting. Try again in a moment.');
-      return;
-    }
-    const devices = await refreshDevices();
-    const last = getLastDevice();
-    const usable = devices.filter((d) => d.id);
-    targetDevice = (last && usable.find((d) => d.id === last.id)?.id) ?? (usable.length === 1 ? usable[0].id! : last?.id);
-    if (!targetDevice) {
-      void findDevices();
-      showNoDeviceHint();
-      return;
-    }
+  const target = targetDeviceId(s);
+  if (!target) return reportMissingDevice();
+  usePlayer.setState({ phoneDeviceMissing: false });
+
+  // 1. Transfer to the target first (play=true wakes it up), unless it's already the active one.
+  if (s.device?.id !== target) {
     try {
-      await api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [targetDevice], play: false }) });
-    } catch {
-      // Remembered device is offline (e.g. iOS suspended the Spotify app).
-      void findDevices();
-      showNoDeviceHint();
-      return;
+      await api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [target], play: true }) });
+    } catch (e) {
+      if (s.mode === 'remote') return reportMissingDevice(); // the phone's app went away
+      if (!(e instanceof ApiError && e.status === 404)) {
+        toast(describe(e));
+        return;
+      }
+      // A just-registered SDK device can 404 once; the play request below retries.
     }
   }
+
+  // 2. Start the requested track/context on that device.
   const body: Record<string, unknown> = {};
   if (req.contextUri) body.context_uri = req.contextUri;
   if (req.uris) body.uris = req.uris;
   if (req.offsetUri) body.offset = { uri: req.offsetUri };
   else if (req.offsetPosition != null) body.offset = { position: req.offsetPosition };
 
-  const send = () => api(`/me/player/play${deviceQuery({}, targetDevice)}`, { method: 'PUT', body: JSON.stringify(body) });
-  await command({ isPlaying: true, contextUri: req.contextUri ?? null, positionMs: 0, updatedAt: Date.now() }, async () => {
-    try {
-      await send();
-    } catch (e) {
-      // A just-registered SDK device can 404 until it has been "activated" once: transfer, retry.
-      if (e instanceof ApiError && e.status === 404 && s.sdkDeviceId && !s.device) {
-        await api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [s.sdkDeviceId], play: false }) });
+  const send = () => api(`/me/player/play${deviceQuery({}, target)}`, { method: 'PUT', body: JSON.stringify(body) });
+  const device = s.devices.find((d) => d.id === target) ?? s.device;
+  await command(
+    {
+      isPlaying: true,
+      contextUri: req.contextUri ?? null,
+      positionMs: 0,
+      updatedAt: Date.now(),
+      ...(device ? { device: { ...device, is_active: true } } : {}),
+    },
+    async () => {
+      try {
         await send();
-      } else throw e;
-    }
-  });
+      } catch (e) {
+        // A just-registered SDK device can 404 until it has been "activated" once: transfer, retry.
+        if (e instanceof ApiError && e.status === 404 && target === s.sdkDeviceId) {
+          await api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [target], play: false }) });
+          await send();
+        } else throw e;
+      }
+    },
+  );
 }
 
 /** Move playback to another device (Spotify Connect), keeping play/pause state. */
@@ -399,7 +448,10 @@ export async function transferTo(deviceId: string) {
   const s = usePlayer.getState();
   activateSdkElement();
   const target = s.devices.find((d) => d.id === deviceId) ?? null;
-  if (target && deviceId !== s.sdkDeviceId) setLastDevice({ id: deviceId, name: target.name });
+  // A manual pick sticks for this session only; picking this device clears it.
+  setSessionChoice(deviceId === thisDeviceId(s) ? null : deviceId);
+  if (target && isSmartphone(target.type)) setLastDevice({ id: deviceId, name: target.name });
+  usePlayer.setState({ phoneDeviceMissing: false });
   await command({ device: target ? { ...target, is_active: true } : s.device }, () =>
     api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [deviceId], play: s.isPlaying }) }),
   );
