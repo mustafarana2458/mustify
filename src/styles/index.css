@@ -161,21 +161,37 @@ body,
     color var(--dur-slow) var(--ease-productive);
 }
 
-html,
-body,
-#root {
-  height: 100%;
-}
-#root {
-  /* Dynamic viewport height: follows mobile browser toolbars showing/hiding. */
-  height: 100dvh;
-}
-
+/*
+ * Sizing the app to the screen.
+ * html/body: plain 100% with no margin, padding or min-height (nothing that can add height).
+ * #root: pinned with position:fixed + inset:0 instead of a height. The edges of a fixed box
+ * are the edges of the viewport, in Safari (where toolbars come and go) and in an installed
+ * home-screen app. Viewport units (100vh/100dvh) are avoided on purpose: in iOS standalone mode
+ * with a translucent status bar they can come out shorter than the screen, which left a gap
+ * under the tab bar. No explicit height is set, because a height would override `bottom`.
+ * Fallback for very old engines without `inset`: top/right/bottom/left.
+ * Safe areas: the mobile layout pads the TOP once (its root) and the BOTTOM once (the tab bar).
+ */
 html,
 body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
   /* No rubber-band bounce / pull-to-refresh on the page itself; panels scroll inside. */
   overscroll-behavior: none;
   overflow: hidden;
+}
+
+#root {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  inset: 0;
+  /* Screens taller than the viewport (e.g. login on a small phone) scroll here. */
+  overflow: auto;
+  overscroll-behavior: none;
 }
 
 body {

@@ -20,7 +20,9 @@ import { MainScrollContext, useResetScrollOnNavigate } from './mainScroll';
  *   │ mini player / hint   │
  *   │ tab bar              │
  *   └ home-indicator area  ┘
- * Uses the dynamic viewport height (100dvh) and no rubber-band overscroll.
+ * Fills #root exactly (h-full; #root is pinned to the screen edges in index.css, which is
+ * reliable in iOS standalone mode where 100dvh can be short). Safe areas are padded once each:
+ * the top here, the bottom on the tab bar only.
  */
 export function MobileLayout() {
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
@@ -29,7 +31,7 @@ export function MobileLayout() {
   useResetScrollOnNavigate(scrollEl);
 
   return (
-    <div className="flex h-dvh flex-col bg-app pt-[env(safe-area-inset-top)]">
+    <div className="flex h-full flex-col bg-app pt-[env(safe-area-inset-top)]">
       <main
         ref={setScrollEl}
         id="main"

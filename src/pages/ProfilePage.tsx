@@ -5,6 +5,7 @@ import type { UserProfile } from '../api/types';
 import { forceRefresh, useAuth } from '../auth/authStore';
 import { REDIRECT_URI } from '../auth/config';
 import { Button } from '../components/Button';
+import { LayoutDiagnostics } from '../components/LayoutDiagnostics';
 import { FORCE_REMOTE_KEY, isMobileDevice } from '../player/env';
 import { usePlayer } from '../player/store';
 
@@ -76,6 +77,9 @@ export function ProfilePage() {
         <h2 className="mb-1 font-bold">Spotify app settings</h2>
         <p className="text-sm text-fg-muted">This address must be listed under Redirect URIs in your Spotify dashboard:</p>
         <code className="mt-1 block rounded-xs bg-tint px-2 py-1 text-sm break-all">{REDIRECT_URI}</code>
+
+        <hr className="my-6 border-divider" />
+        <LayoutDiagnostics />
 
         <hr className="my-6 border-divider" />
         <h2 className="mb-1 font-bold">Playback mode</h2>

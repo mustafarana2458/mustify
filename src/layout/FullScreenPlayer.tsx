@@ -111,11 +111,13 @@ export function FullScreenPlayer({ onClose }: { onClose: () => void }) {
           </div>
           <span className="size-11" aria-hidden />
         </header>
-        <div className="flex min-h-0 flex-1 items-center justify-center py-6">
+        {/* The art is the largest square that fits the space left over (container units,
+            not viewport units, so it's right on any phone and in standalone mode). */}
+        <div className="flex min-h-0 flex-1 items-center justify-center py-6 [container-type:size]">
           <Artwork
             images={item.album.images}
             px={600}
-            className="aspect-square max-h-full w-full max-w-[min(100%,calc(100dvh-440px))] min-w-40 rounded-lg shadow-[0_8px_40px_#00000080]"
+            className="size-[min(100cqw,100cqh)] rounded-lg shadow-[0_8px_40px_#00000080]"
           />
         </div>
       </div>
