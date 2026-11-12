@@ -20,17 +20,23 @@ interface SaveIconButtonProps {
   size?: Size;
   /** Unsaved state only shows on row hover/focus (track rows). Saved ✓ is always visible. */
   reveal?: boolean;
+  /**
+   * While loading / if unavailable, render nothing instead of an empty same-size placeholder
+   * (for compact toolbars like the mobile mini player, where a blank slot looks like a gap).
+   */
+  collapse?: boolean;
   className?: string;
 }
 
 /**
  * ⊕ when not saved, a filled accent circle with ✓ when saved (UI-SPEC §3.1 toggled state, my
  * own drawing). Shared by track likes and album/playlist saves so they look the same everywhere.
- * Renders an empty placeholder of the same size while loading or if the endpoint failed.
+ * Renders an empty placeholder of the same size while loading or if the endpoint failed
+ * (or nothing at all with `collapse`).
  */
-export function SaveIconButton({ saved, onToggle, labels, size = 'sm', reveal = false, className = '' }: SaveIconButtonProps) {
+export function SaveIconButton({ saved, onToggle, labels, size = 'sm', reveal = false, collapse = false, className = '' }: SaveIconButtonProps) {
   const s = SIZES[size];
-  if (typeof saved !== 'boolean') return <span className={`${s.box} shrink-0 ${className}`} aria-hidden />;
+  if (typeof saved !== 'boolean') return collapse ? null : <span className={`${s.box} shrink-0 ${className}`} aria-hidden />;
   const label = saved ? labels[1] : labels[0];
   const onClick = (e: MouseEvent) => {
     e.stopPropagation();
@@ -72,11 +78,13 @@ export function LikeButton({
   trackId,
   size = 'sm',
   reveal,
+  collapse,
   className,
 }: {
   trackId: string | null | undefined;
   size?: Size;
   reveal?: boolean;
+  collapse?: boolean;
   className?: string;
 }) {
   const [saved, toggle] = useSavedTrack(trackId);
@@ -87,6 +95,7 @@ export function LikeButton({
       labels={['Save to Liked Songs', 'Remove from Liked Songs']}
       size={size}
       reveal={reveal}
+      collapse={collapse}
       className={className}
     />
   );

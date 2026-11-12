@@ -269,7 +269,7 @@ function MiniPlayer({ onOpen }: { onOpen: () => void }) {
   return (
     // No overflow-hidden: the device menu opens upward out of this card.
     <Card tint={color} style={{ transition: 'background-color 500ms var(--ease-productive)' }}>
-      <div className="flex h-14 items-center gap-1 pr-1">
+      <div className="flex h-14 items-center gap-2 pr-2">
         <button
           type="button"
           onClick={onOpen}
@@ -284,11 +284,15 @@ function MiniPlayer({ onOpen }: { onOpen: () => void }) {
             </span>
           </span>
         </button>
-        <DevicePicker size="touch" />
-        {item.kind === 'track' && <LikeButton trackId={item.id} size="touch" />}
-        <IconButton label={isPlaying ? 'Pause' : 'Play'} size="touch" onClick={() => void togglePlay()} className="!text-fg">
-          {isPlaying ? <Pause className="size-6 fill-current" aria-hidden /> : <Play className="size-6 fill-current" aria-hidden />}
-        </IconButton>
+        {/* Controls grouped at the right edge: [device] [like] [play/pause], 40px each, 6px apart.
+            The active-device dot sits under the device icon, inside its button. */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <DevicePicker size="md" />
+          {item.kind === 'track' && <LikeButton trackId={item.id} size="md" collapse />}
+          <IconButton label={isPlaying ? 'Pause' : 'Play'} size="md" onClick={() => void togglePlay()} className="!text-fg">
+            {isPlaying ? <Pause className="size-6 fill-current" aria-hidden /> : <Play className="size-6 fill-current" aria-hidden />}
+          </IconButton>
+        </div>
       </div>
       {/* On the bottom edge, inset 18px so it stays clear of the 22px rounded corners. */}
       <div className="absolute inset-x-[18px] bottom-0 h-0.5 overflow-hidden rounded-full bg-white/25" aria-hidden>

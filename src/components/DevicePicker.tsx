@@ -37,7 +37,7 @@ const ICONS: Record<string, LucideIcon> = {
  * Spotify Connect device picker (GET /me/player/devices, PUT /me/player to transfer).
  * Opens upward from the player bar. Refreshes the list each time it opens.
  */
-export function DevicePicker({ size = 'sm', align = 'end' }: { size?: 'sm' | 'touch'; align?: 'start' | 'end' }) {
+export function DevicePicker({ size = 'sm', align = 'end' }: { size?: 'sm' | 'md' | 'touch'; align?: 'start' | 'end' }) {
   const devices = usePlayer((s) => s.devices);
   const activeId = usePlayer((s) => s.device?.id ?? null);
   const sdkDeviceId = usePlayer((s) => s.sdkDeviceId);
@@ -76,7 +76,7 @@ export function DevicePicker({ size = 'sm', align = 'end' }: { size?: 'sm' | 'to
       items={items}
       trigger={(props) => (
         <IconButton label="Connect to a device" size={size} active={remoteActive || undefined} {...props}>
-          <MonitorSpeaker className={size === 'touch' ? 'size-5' : 'size-4'} aria-hidden />
+          <MonitorSpeaker className={size === 'sm' ? 'size-4' : 'size-5'} aria-hidden />
         </IconButton>
       )}
     />
