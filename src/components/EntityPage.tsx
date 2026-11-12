@@ -1,5 +1,5 @@
 import { ChevronLeft } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import type { PlayTarget } from '../api/home';
 import { ApiError } from '../api/client';
@@ -7,6 +7,7 @@ import type { EntityKind } from '../api/saved';
 import { useEntitySaved } from '../api/saved';
 import type { SpotifyImage } from '../api/types';
 import { useScrolledPast } from '../layout/mainScroll';
+import { useStatusBarColor } from '../layout/statusBar';
 import { Artwork } from './Artwork';
 import { useSafeAreaTop } from '../lib/safeArea';
 import { useIsMobileLayout } from '../lib/useMediaQuery';
@@ -68,6 +69,14 @@ export function EntityLayout({
   const barColor = `color-mix(in oklab, ${color} 85%, var(--color-surface))`;
   const mobile = useIsMobileLayout();
   const navigate = useNavigate();
+
+  // Mobile: the backdrop behind the status bar (shown once scrolled) takes this page's bar
+  // colour, so it joins the sticky title bar seamlessly.
+  useEffect(() => {
+    if (!mobile) return;
+    useStatusBarColor.setState({ color: barColor });
+    return () => useStatusBarColor.setState({ color: null });
+  }, [mobile, barColor]);
 
   return (
     <div className="@container relative min-h-full">

@@ -11,9 +11,12 @@ export interface PlaybackItem {
   uri: string;
   name: string;
   durationMs: number;
-  kind: 'track' | 'episode';
+  /** 'local' = Offline section (Jamendo / Audius / your files), played by the in-app engine. */
+  kind: 'track' | 'episode' | 'local';
   album: { id: string | null; uri: string; name: string; images: SpotifyImage[] };
   artists: { id: string | null; uri: string; name: string }[];
+  /** Offline-section tracks: source, licence and link (shown in Now Playing). */
+  attribution?: import('../offline/types').Attribution;
 }
 
 export interface Device {
@@ -26,6 +29,11 @@ export interface Device {
 }
 
 export interface PlayerState {
+  /**
+   * Which engine drives the player UI: Spotify (SDK / Connect) or the in-app <audio> engine
+   * for the Offline section. Only one plays at a time.
+   */
+  engine: 'spotify' | 'local';
   /** 'sdk': this browser can play audio. 'remote': Spotify Connect remote only. */
   mode: 'sdk' | 'remote';
   sdkStatus: 'idle' | 'loading' | 'ready' | 'error';
@@ -59,6 +67,7 @@ export interface PlayerState {
 }
 
 export const usePlayer = create<PlayerState>()(() => ({
+  engine: 'spotify',
   mode: shouldUseRemoteMode() ? 'remote' : 'sdk',
   sdkStatus: 'idle',
   sdkError: null,
@@ -82,11 +91,14 @@ export const usePlayer = create<PlayerState>()(() => ({
 
 /** True when this browser tab is the active Spotify Connect device. */
 export const selectIsLocal = (s: PlayerState) =>
-  s.mode === 'sdk' && s.sdkDeviceId !== null && s.device?.id === s.sdkDeviceId;
+  s.engine === 'spotify' && s.mode === 'sdk' && s.sdkDeviceId !== null && s.device?.id === s.sdkDeviceId;
+
+/** True when audio is playing inside this page (Spotify SDK here, or the Offline engine). */
+export const selectPlaysHere = (s: PlayerState) => s.engine === 'local' || selectIsLocal(s);
 
 /** Name of the active device when it is some other device (for the "Playing on …" strip). */
 export const selectRemoteDeviceName = (s: PlayerState) =>
-  s.device && s.device.is_active && s.device.id !== s.sdkDeviceId ? s.device.name : null;
+  s.engine === 'spotify' && s.device && s.device.is_active && s.device.id !== s.sdkDeviceId ? s.device.name : null;
 
 export function currentPositionMs(s: PlayerState = usePlayer.getState()): number {
   const elapsed = s.isPlaying ? Date.now() - s.updatedAt : 0;

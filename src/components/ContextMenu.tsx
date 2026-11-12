@@ -78,7 +78,8 @@ export function ContextMenuHost() {
         closeContextMenu();
         if (refocus) returnFocus?.focus();
       }}
-      className="fixed"
+      // Absolute against #root (top-left at 0,0, like the viewport), not position:fixed.
+      className="absolute"
       // Render invisibly first to measure, then place.
       style={pos ? { left: pos.left, top: pos.top } : { left: x, top: y, visibility: 'hidden' }}
     />

@@ -7,10 +7,8 @@ import { screenHeight } from '../lib/safeArea';
 interface Metrics {
   mode: string;
   standalone: boolean;
-  /** Screen height − app height: must be 0 in the installed app (full-screen). */
-  screenMinusApp: number;
-  /** lib/safeArea.ts fallback active (iOS still using an opaque status bar). */
-  opaqueGuard: boolean;
+  /** Bottom edge of the tab bar (px from the top of the screen); null on desktop. */
+  tabBottom: number | null;
   screenH: number;
   innerH: number;
   visualH: number | null;
@@ -60,8 +58,7 @@ function measure(): Metrics {
   return {
     mode: standalone ? 'standalone (home screen)' : 'browser',
     standalone,
-    screenMinusApp: Math.round(screenHeight() - root.height),
-    opaqueGuard: document.documentElement.hasAttribute('data-statusbar-opaque'),
+    tabBottom: tab ? Math.round(tab.bottom) : null,
     screenH: screenHeight(),
     innerH: window.innerHeight,
     visualH: vv ? Math.round(vv.height) : null,
@@ -101,12 +98,13 @@ function useMetrics(): Metrics | null {
   return m;
 }
 
-const isOk = (m: Metrics) =>
-  (m.tabGap === null || Math.abs(m.tabGap) <= 1) &&
-  m.scrollY === 0 &&
-  m.rootTop === 0 &&
-  // Installed app must cover the whole screen (translucent status bar).
-  (!m.standalone || Math.abs(m.screenMinusApp) <= 1);
+/**
+ * The one acceptance check: in the installed app the tab bar's bottom edge must be the bottom
+ * of the screen (e.g. 932 on the test iPhone). In Safari the toolbars take space, so no check.
+ * (innerHeight is NOT used: iOS reports it 59px short in standalone mode.)
+ */
+const tabAtScreenBottom = (m: Metrics) => m.tabBottom !== null && Math.abs(m.tabBottom - m.screenH) <= 1;
+const isOk = (m: Metrics) => !m.standalone || m.tabBottom === null || tabAtScreenBottom(m);
 
 /** Persisted switch for the on-every-page overlay. */
 export const useDiagnosticsOverlay = create<{ on: boolean; set: (on: boolean) => void }>()(
@@ -129,14 +127,15 @@ export function LayoutDiagnostics() {
     ['Page scroll (should be 0)', `${m.scrollY} px`],
     ['App top / height', `${m.rootTop} / ${m.rootH} px`],
     [
-      'Screen − app height',
-      `${m.screenMinusApp} px${m.standalone ? (Math.abs(m.screenMinusApp) <= 1 ? ' ✓' : ' ✗ should be 0 (re-add the app to the home screen)') : ' (browser: toolbars take space, OK)'}`,
+      'Tab bar bottom / screen',
+      m.tabBottom === null
+        ? 'no tab bar (desktop layout)'
+        : `${m.tabBottom} / ${m.screenH} px${m.standalone ? (tabAtScreenBottom(m) ? ' ✓' : ' ✗ should be equal') : ' (browser: not checked)'}`,
     ],
-    ['Opaque status-bar fallback', m.opaqueGuard ? 'active' : 'off'],
     ['100dvh resolves to', `${m.dvh} px`],
     ['100vh resolves to', `${m.vh} px`],
     ['Safe area top / bottom', `${m.safeTop} / ${m.safeBottom} px`],
-    ['Gap under tab bar', m.tabGap === null ? 'no tab bar (desktop layout)' : `${m.tabGap} px`],
+    ['Gap under tab bar (visual viewport)', m.tabGap === null ? 'no tab bar (desktop layout)' : `${m.tabGap} px`],
   ];
 
   return (
@@ -174,11 +173,11 @@ export function DiagnosticsOverlay() {
   return (
     <div
       aria-hidden
-      className={`pointer-events-none fixed top-[calc(env(safe-area-inset-top)+4px)] right-2 z-[90] rounded-sm px-2 py-1 font-mono text-[10px] leading-tight text-white shadow-overlay ${isOk(m) ? 'bg-black/70' : 'bg-red-700/90'}`}
+      className={`pointer-events-none absolute top-[calc(env(safe-area-inset-top)+4px)] right-2 z-[90] rounded-sm px-2 py-1 font-mono text-[10px] leading-tight text-white shadow-overlay ${isOk(m) ? 'bg-black/70' : 'bg-red-700/90'}`}
     >
-      gap {m.tabGap ?? '–'} · scroll {m.scrollY} · top {m.rootTop} · scr−app {m.screenMinusApp}
+      tab bottom {m.tabBottom ?? '–'} / screen {m.screenH}
       <br />
-      app {m.rootH} / vp {m.innerH} / vv {m.visualH ?? '–'}
+      app {m.rootH} · vp {m.innerH} · scroll {m.scrollY}
     </div>
   );
 }

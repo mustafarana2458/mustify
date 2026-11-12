@@ -65,6 +65,7 @@ declare namespace Spotify {
     addListener(event: ErrorEvent, cb: (e?: Error) => void): boolean;
     getCurrentState(): Promise<PlaybackState | null>;
     setVolume(volume: number): Promise<void>;
+    pause(): Promise<void>;
     togglePlay(): Promise<void>;
     seek(positionMs: number): Promise<void>;
     previousTrack(): Promise<void>;

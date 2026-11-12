@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Link } from 'react-router';
 import { Artwork } from '../components/Artwork';
 import { DevicePicker } from '../components/DevicePicker';
+import { AttributionLine } from '../components/offline/OfflineTrackRow';
 import { IconButton } from '../components/IconButton';
 import { LikeButton } from '../components/LikeButton';
 import { Slider } from '../components/Slider';
@@ -42,6 +43,7 @@ export function FullScreenPlayer({ onClose }: { onClose: () => void }) {
   const device = usePlayer((s) => s.device);
   const volume = usePlayer((s) => s.volume);
   const local = usePlayer(selectIsLocal);
+  const engine = usePlayer((s) => s.engine);
   const color = useHeaderColor(item?.album.images, accent);
   const [dragMs, setDragMs] = useState<number | null>(null);
   const [dragY, setDragY] = useState(0);
@@ -92,7 +94,7 @@ export function FullScreenPlayer({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-modal="true"
       aria-label="Now playing"
-      className="sheet-up fixed inset-0 z-50 flex flex-col px-6 pt-[calc(env(safe-area-inset-top)+8px)] pb-[calc(env(safe-area-inset-bottom)+20px)]"
+      className="sheet-up absolute inset-0 z-50 flex flex-col px-6 pt-[calc(env(safe-area-inset-top)+8px)] pb-[calc(env(safe-area-inset-bottom)+20px)]"
       style={{
         background: `linear-gradient(${color} 0%, var(--color-app) 85%)`,
         transform: `translateY(${dragY}px)`,
@@ -107,7 +109,11 @@ export function FullScreenPlayer({ onClose }: { onClose: () => void }) {
           </IconButton>
           <div className="min-w-0 text-center text-xs">
             <p className="font-bold tracking-wide uppercase">Now playing</p>
-            {device && <p className="truncate text-fg/80">{local ? 'This phone' : device.name}</p>}
+            {engine === 'local' ? (
+              <p className="truncate text-fg/80">Playing in Mustify</p>
+            ) : (
+              device && <p className="truncate text-fg/80">{local ? 'This phone' : device.name}</p>
+            )}
           </div>
           <span className="size-11" aria-hidden />
         </header>
@@ -148,6 +154,7 @@ export function FullScreenPlayer({ onClose }: { onClose: () => void }) {
         </div>
         {item.kind === 'track' && <LikeButton trackId={item.id} size="touch" />}
       </div>
+      {item.attribution && <AttributionLine attribution={item.attribution} className="mt-1" />}
 
       <div className="mt-4">
         <Slider

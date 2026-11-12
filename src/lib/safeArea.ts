@@ -40,21 +40,22 @@ export function screenHeight(): number {
 }
 
 /**
- * The root is sized with 100vh in standalone mode (index.css), which is the full screen once
- * the translucent status bar is active. If iOS still applies an OPAQUE status bar (the app was
- * added to the home screen before that setting existed), the viewport is shorter than 100vh
- * and the tab bar would be pushed off-screen; this flag makes the root fall back to filling
- * the viewport instead. It also shows up red in Layout diagnostics.
+ * Fallback for older iOS that sets navigator.standalone but doesn't support the
+ * `(display-mode: standalone)` media query used in index.css: size the root to the screen
+ * height in px (the installed app covers the whole screen). Never innerHeight.
  */
-function updateStatusBarFlag() {
-  const opaque = isStandaloneDisplay() && window.innerHeight < screenHeight() - 1;
-  document.documentElement.toggleAttribute('data-statusbar-opaque', opaque);
+function applyStandaloneFallback() {
+  const legacyStandalone =
+    (navigator as Navigator & { standalone?: boolean }).standalone === true &&
+    !window.matchMedia('(display-mode: standalone)').matches;
+  const root = document.getElementById('root');
+  if (root && legacyStandalone) root.style.height = `${screenHeight()}px`;
 }
 
 export function installSafeArea() {
   const update = () => {
     measure();
-    updateStatusBarFlag();
+    applyStandaloneFallback();
   };
   update();
   window.addEventListener('resize', update);

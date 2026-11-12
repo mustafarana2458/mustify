@@ -4,6 +4,7 @@ import { APP_NAME } from '../brand/info';
 import { AccountMenu } from '../components/AccountMenu';
 import { IconButton } from '../components/IconButton';
 import { LogoMark } from '../components/Logo';
+import { OfflineBadge } from '../components/OfflineGate';
 import { SearchInput } from '../components/SearchInput';
 
 /** Global nav (UI-SPEC §1.2, desktop only): logo, history arrows, Home, search, account. 48px tall. */
@@ -16,6 +17,7 @@ export function TopBar() {
         <Link to="/" aria-label={`${APP_NAME} home`} className="mx-2 rounded-[9px]">
           <LogoMark size={30} />
         </Link>
+        <OfflineBadge />
         <IconButton label="Go back" size="md" filled onClick={() => navigate(-1)}>
           <ChevronLeft className="size-5" aria-hidden />
         </IconButton>

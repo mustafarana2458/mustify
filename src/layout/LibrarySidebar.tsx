@@ -1,8 +1,9 @@
-import { ArrowDownUp, Library, Plus, Search, Volume2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ArrowDownUp, Download, Library, Plus, Search, Volume2 } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router';
 import { AUTHOR } from '../brand/info';
 import { AccountMenu } from '../components/AccountMenu';
+import { useOffline } from '../offline/store';
 import { Artwork } from '../components/Artwork';
 import { Chip, ClearChip } from '../components/Chip';
 import { HScroller } from '../components/HScroller';
@@ -50,6 +51,20 @@ function RowText({ title, subtitle, playing }: { title: string; subtitle: string
   );
 }
 
+/** Panel: its own overlay-scrollbar area. Page (mobile): plain block in the page's scroller. */
+function ListScroller({ page, children }: { page: boolean; children: ReactNode }) {
+  return page ? <div>{children}</div> : <ScrollArea className="flex-1">{children}</ScrollArea>;
+}
+
+/** Tile for the Offline entry: download icon on a soft accent background (own design). */
+function OfflineTile({ className }: { className: string }) {
+  return (
+    <span aria-hidden className={`flex items-center justify-center rounded-sm bg-accent/20 text-accent-ink ${className}`}>
+      <Download className="size-1/2" />
+    </span>
+  );
+}
+
 function subtitleFor(e: LibraryEntry): string {
   return e.kind === 'artist' ? KIND_LABEL.artist : `${KIND_LABEL[e.kind]} · ${e.creator}`;
 }
@@ -63,6 +78,7 @@ export function LibrarySidebar({ collapsed, variant = 'panel' }: { collapsed: bo
   const sort = useLayout((s) => s.librarySort);
   const setSort = useLayout((s) => s.setLibrarySort);
   const { entries, status, failed, likedTotal } = useLibrary();
+  const offlineCount = useOffline((st) => st.tracks.length);
   const contextUri = usePlayer((s) => s.contextUri);
   const isPlaying = usePlayer((s) => s.isPlaying);
   const [filter, setFilter] = useState<LibraryKind | null>(null);
@@ -108,6 +124,11 @@ export function LibrarySidebar({ collapsed, variant = 'panel' }: { collapsed: bo
         <ScrollArea className="w-full flex-1">
           <ul className="flex flex-col items-center pt-1 pb-2">
             <li>
+              <NavLink to="/offline" title="Offline" aria-label="Offline" className={railClass}>
+                <OfflineTile className="size-12" />
+              </NavLink>
+            </li>
+            <li>
               <NavLink to="/collection/tracks" title="Liked Songs" aria-label="Liked Songs" className={railClass}>
                 <Artwork liked px={48} className="size-12 rounded-sm" />
               </NavLink>
@@ -126,10 +147,10 @@ export function LibrarySidebar({ collapsed, variant = 'panel' }: { collapsed: bo
   }
 
   return (
-    <nav aria-label="Your library" className="flex h-full min-w-0 flex-col">
+    <nav aria-label="Your library" className={`flex min-w-0 flex-col ${variant === 'page' ? 'min-h-full' : 'h-full'}`}>
       {variant === 'page' ? (
         // Mobile "Your Library" tab: account avatar + title, no collapse.
-        <header className="flex items-center gap-3 px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-2">
+        <header className="flex items-center gap-3 px-4 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2">
           <AccountMenu size={40} align="start" />
           <h1 className="text-2xl font-bold tracking-tight">Your Library</h1>
         </header>
@@ -205,7 +226,18 @@ export function LibrarySidebar({ collapsed, variant = 'panel' }: { collapsed: bo
         />
       </div>
 
-      <ScrollArea className="flex-1">
+      {/* Page variant (mobile tab) scrolls with the page, so the overlays' spacer applies. */}
+      <ListScroller page={variant === 'page'}>
+        {variant === 'panel' && (
+          <ul className="px-2">
+            <li>
+              <NavLink to="/offline" className={rowClass}>
+                <OfflineTile className="size-12 shrink-0" />
+                <RowText title="Offline" subtitle={offlineCount ? `${plural(offlineCount, 'download')}` : 'Downloads & your music'} playing={false} />
+              </NavLink>
+            </li>
+          </ul>
+        )}
         {status === 'error' ? (
           <div className="p-4 text-sm text-fg-muted">
             <p className="mb-2">Couldn't load your library.</p>
@@ -254,7 +286,7 @@ export function LibrarySidebar({ collapsed, variant = 'panel' }: { collapsed: bo
             )}
           </ul>
         )}
-      </ScrollArea>
+      </ListScroller>
       <footer className="shrink-0 px-4 pt-2 pb-3">
         <Link to="/about" className="text-[11px] text-fg-muted transition-colors hover:text-fg hover:underline">
           Designed &amp; built by {AUTHOR.name}

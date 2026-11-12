@@ -23,7 +23,7 @@ export function ProfilePage() {
   const avatar = me?.images?.[0]?.url;
 
   return (
-    <div className="p-6 pt-[calc(1.5rem+env(safe-area-inset-top))]">
+    <div className="p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] max-md:pt-[calc(0.5rem+env(safe-area-inset-top))]">
       <div className="w-full max-w-md rounded-lg bg-elevated p-8">
         {loading && <p className="text-fg-muted">Loading your profile…</p>}
         {error && <p className="text-danger">Could not load profile: {error.message}</p>}

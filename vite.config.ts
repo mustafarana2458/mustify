@@ -54,15 +54,29 @@ export default defineConfig({
       },
       workbox: {
         /*
-         * App shell only: the built JS/CSS/HTML, fonts and our own icons are precached.
-         * There are deliberately NO runtimeCaching rules, so the service worker never
-         * stores or serves Spotify API responses (api.spotify.com), auth/token requests
-         * (accounts.spotify.com), the playback SDK, or cover images. Tokens live in
-         * localStorage and are never seen by the service worker.
+         * Precached: the app shell only (built JS/CSS/HTML, fonts, our own icons).
+         * Runtime: exactly ONE rule, for the Offline section's own media at /offline-media/
+         * (downloaded Jamendo/Audius tracks and imported files, put there by the app in
+         * src/offline/db.ts). It is CacheOnly (never touches the network) and supports byte
+         * ranges, which audio playback needs. There is no rule for anything else, so the
+         * service worker never stores or serves Spotify API responses (api.spotify.com),
+         * auth/token requests (accounts.spotify.com), the playback SDK or cover images, and
+         * tokens (localStorage) are never seen by it.
          */
         globPatterns: ['**/*.{js,css,html,woff2,svg,png}'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/offline-media/'),
+            handler: 'CacheOnly',
+            options: {
+              cacheName: 'mustify-offline-media', // must match MEDIA_CACHE in src/offline/db.ts
+              rangeRequests: true,
+            },
+          },
+        ],
         // Client-side routes (including /callback?code=…) get the cached app shell.
         navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/offline-media\//],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,

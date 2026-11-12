@@ -167,6 +167,9 @@ body,
  * #root: fixed at the top, height 100dvh in Safari and 100vh in the installed app (where,
  * with the translucent status bar, 100vh is the full screen: measured 932px on the test
  * iPhone). See the standalone rules below.
+ * Overlays (toasts, menus, splash, full-screen player) are positioned against #root, not the
+ * viewport: in the installed app iOS's layout viewport (innerHeight) is shorter than the
+ * screen, so `position: fixed` would stop short of the bottom.
  * Safe areas: the TOP is padded by each page's own header (so header colours extend behind
  * the status bar); the BOTTOM is padded once, on the tab bar.
  */
@@ -198,18 +201,22 @@ body {
 }
 
 /* Installed home-screen app: with the translucent status bar (index.html) the app covers the
-   whole screen, and 100vh is exactly the screen height there. */
+   whole screen and 100vh is exactly the screen height (932px measured), even though iOS reports
+   a smaller innerHeight (873px). So the root uses 100vh here; never innerHeight or 100%.
+   (Older iOS without this media query: lib/safeArea.ts sets screen.height in px instead.) */
 @media (display-mode: standalone) {
   #root {
     height: 100vh;
   }
 }
 
-/* Guard (set in lib/safeArea.ts): iOS still using an opaque status bar (app added to the home
-   screen before the translucent setting) → 100vh would overflow the shorter viewport and push
-   the tab bar off-screen, so fill the viewport instead. Re-adding the app fixes it for good. */
-:root[data-statusbar-opaque] #root {
-  height: 100%;
+/* Mobile: the page background shows everywhere, including behind the status bar. */
+@media (max-width: 767px) {
+  html,
+  body,
+  #root {
+    background-color: var(--color-surface);
+  }
 }
 
 body {

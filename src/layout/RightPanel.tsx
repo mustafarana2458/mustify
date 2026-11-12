@@ -6,6 +6,7 @@ import { Artwork } from '../components/Artwork';
 import { IconButton } from '../components/IconButton';
 import { LikeButton } from '../components/LikeButton';
 import { NotAvailableCard } from '../components/NotAvailableCard';
+import { AttributionLine } from '../components/offline/OfflineTrackRow';
 import { ScrollArea } from '../components/ScrollArea';
 import { withViewTransition } from '../lib/viewTransition';
 import { usePlayer } from '../player/store';
@@ -78,7 +79,16 @@ export function RightPanel() {
               </section>
             )}
 
-            <NotAvailableCard title="Credits" />
+            {item.kind === 'local' ? (
+              item.attribution && (
+                <section className="rounded-lg bg-elevated p-4">
+                  <h3 className="mb-2 text-sm font-bold">Source &amp; licence</h3>
+                  <AttributionLine attribution={item.attribution} className="text-sm" />
+                </section>
+              )
+            ) : (
+              <NotAvailableCard title="Credits" />
+            )}
 
             {queue.length > 0 && (
               <section className="rounded-lg bg-elevated p-4">

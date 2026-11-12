@@ -13,7 +13,7 @@ import {
   togglePlay,
 } from './controls';
 import { startSdk } from './sdk';
-import { currentPositionMs, itemFromSdk, selectIsLocal, usePlayer } from './store';
+import { currentPositionMs, itemFromSdk, selectIsLocal, selectPlaysHere, usePlayer } from './store';
 
 // Polling cadence (chosen). The Web API has no push channel, so remote state is polled.
 // When this tab is the active device, SDK events are the main source and polling is slow.
@@ -24,6 +24,8 @@ const SEEK_STEP_MS = 10000; // Media Session seek forward/back step
 const REPEAT_FROM_SDK = ['off', 'context', 'track'] as const;
 
 function applySdkState(st: Spotify.PlaybackState) {
+  // The Offline engine owns the player while it's active.
+  if (usePlayer.getState().engine === 'local') return;
   const item = itemFromSdk(st.track_window.current_track);
   usePlayer.setState((s) => ({
     item,
@@ -86,7 +88,8 @@ export function usePlayerSync() {
     let timer: number | undefined;
     let stopped = false;
     const tick = async () => {
-      if (!document.hidden) await refreshPlayback();
+      // No point polling Spotify without internet (the Offline section works without it).
+      if (!document.hidden && navigator.onLine) await refreshPlayback();
       if (stopped) return;
       timer = window.setTimeout(tick, selectIsLocal(usePlayer.getState()) ? POLL_LOCAL_MS : POLL_REMOTE_MS);
     };
@@ -117,7 +120,7 @@ export function usePlayerSync() {
   useEffect(
     () =>
       usePlayer.subscribe((s, prev) => {
-        if (s.item?.uri !== prev.item?.uri && s.item && !selectIsLocal(s)) void refreshQueue();
+        if (s.item?.uri !== prev.item?.uri && s.item && s.engine === 'spotify' && !selectIsLocal(s)) void refreshQueue();
       }),
     [],
   );
@@ -136,25 +139,44 @@ export function usePlayerSync() {
       ['seekto', (d) => d.seekTime != null && void seek(d.seekTime * 1000)],
     ];
 
+    // Track identity last written to the lock screen. Metadata (incl. artwork) is only rebuilt
+    // when this changes; position updates (several per second) just update the position state,
+    // which keeps the iOS lock-screen artwork from flickering.
+    let shownKey: string | null = null;
+    let handlersOn = false;
+
     const sync = () => {
       const s = usePlayer.getState();
-      const local = selectIsLocal(s);
+      // Lock-screen / Control Centre controls apply when audio plays inside this page:
+      // the Spotify SDK here, or the Offline engine (which works on iPhone too).
+      const local = selectPlaysHere(s);
       if (!local || !s.item) {
-        ms.metadata = null;
-        ms.playbackState = 'none';
-        for (const [a] of handlers) trySet(a, null);
+        if (shownKey !== null || handlersOn) {
+          ms.metadata = null;
+          ms.playbackState = 'none';
+          for (const [a] of handlers) trySet(a, null);
+        }
+        shownKey = null;
+        handlersOn = false;
         return;
       }
-      for (const [a, h] of handlers) trySet(a, h);
+      if (!handlersOn) {
+        for (const [a, h] of handlers) trySet(a, h);
+        handlersOn = true;
+      }
       const art = [96, 256, 512]
         .map((px) => pickImage(s.item!.album.images, px / (window.devicePixelRatio || 1)))
         .filter((u): u is string => !!u);
-      ms.metadata = new MediaMetadata({
-        title: s.item.name,
-        artist: s.item.artists.map((a) => a.name).join(', '),
-        album: s.item.album.name,
-        artwork: [...new Set(art)].map((src) => ({ src })),
-      });
+      const key = `${s.item.uri}|${s.item.name}|${art.join(',')}`;
+      if (key !== shownKey) {
+        shownKey = key;
+        ms.metadata = new MediaMetadata({
+          title: s.item.name,
+          artist: s.item.artists.map((a) => a.name).join(', '),
+          album: s.item.album.name,
+          artwork: [...new Set(art)].map((src) => ({ src })),
+        });
+      }
       ms.playbackState = s.isPlaying ? 'playing' : 'paused';
       try {
         if (s.item.durationMs > 0) {
@@ -182,7 +204,8 @@ export function usePlayerSync() {
         s.item !== prev.item ||
         s.isPlaying !== prev.isPlaying ||
         s.positionMs !== prev.positionMs ||
-        s.device !== prev.device
+        s.device !== prev.device ||
+        s.engine !== prev.engine
       ) {
         sync();
       }

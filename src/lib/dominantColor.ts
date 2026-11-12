@@ -81,8 +81,17 @@ export function headerColorFor(raw: string, kind: 'dark' | 'light', fg: string):
   return c;
 }
 
-/** Header colour for a page, from its images; `fallback` (e.g. the accent) when unavailable. */
-export function useHeaderColor(images: SpotifyImage[] | null | undefined, fallback: string): string {
+/**
+ * Header colour for a page, from its images; `fallback` (e.g. the accent) when unavailable.
+ * By default it suits the current theme's text colour. Pass `forWhiteText` for surfaces that
+ * always use white text whatever the theme (the mobile mini player): the colour is then
+ * darkened until white has ≥4.5:1 contrast on it.
+ */
+export function useHeaderColor(
+  images: SpotifyImage[] | null | undefined,
+  fallback: string,
+  { forWhiteText = false }: { forWhiteText?: boolean } = {},
+): string {
   const appearance = useAppearance();
   const palette = useMemo(() => generatePalette(appearance), [appearance]);
   const url = pickImage(images, 64);
@@ -98,5 +107,7 @@ export function useHeaderColor(images: SpotifyImage[] | null | undefined, fallba
     };
   }, [url]);
 
-  return headerColorFor(raw ?? fallback, palette.kind, palette.vars['--color-fg']);
+  return forWhiteText
+    ? headerColorFor(raw ?? fallback, 'dark', '#FFFFFF')
+    : headerColorFor(raw ?? fallback, palette.kind, palette.vars['--color-fg']);
 }

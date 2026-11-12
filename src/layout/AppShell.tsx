@@ -1,7 +1,9 @@
 import { Speaker } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router';
 import { ContextMenuHost } from '../components/ContextMenu';
+import { OfflineGate } from '../components/OfflineGate';
+import { loadOffline } from '../offline/store';
 import { DiagnosticsOverlay } from '../components/LayoutDiagnostics';
 import { ScrollArea } from '../components/ScrollArea';
 import { Toaster } from '../components/Toaster';
@@ -38,6 +40,9 @@ export function AppShell() {
   // Always-on, whichever layout is showing (the SDK player must survive layout switches).
   useShortcuts();
   usePlayerSync();
+  useEffect(() => {
+    void loadOffline(); // downloaded ✓ badges + offline library
+  }, []);
   const mobile = useIsMobileLayout();
   return (
     <>
@@ -115,7 +120,9 @@ function DesktopLayout() {
       >
         <ScrollArea className="h-full" viewportClassName="scroll-smooth" viewportRef={setMainScroll}>
           <MainScrollContext.Provider value={mainScroll}>
-            <Outlet />
+            <OfflineGate>
+              <Outlet />
+            </OfflineGate>
           </MainScrollContext.Provider>
         </ScrollArea>
       </main>

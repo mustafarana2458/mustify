@@ -11,6 +11,7 @@ import { HomePage } from './pages/HomePage';
 import { LibraryPage } from './pages/LibraryPage';
 import { LikedSongsPage } from './pages/LikedSongsPage';
 import { LoginPage } from './pages/LoginPage';
+import { OfflinePage } from './pages/OfflinePage';
 import { PlaylistPage } from './pages/PlaylistPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SearchPage } from './pages/SearchPage';
@@ -30,6 +31,7 @@ export function App() {
           <Route path="artist/:id" element={<ArtistPage />} />
           <Route path="collection/tracks" element={<LikedSongsPage />} />
           <Route path="library" element={<LibraryPage />} />
+          <Route path="offline" element={<OfflinePage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings/appearance" element={<AppearancePage />} />
           <Route path="about" element={<AboutPage />} />

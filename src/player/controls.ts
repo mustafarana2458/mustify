@@ -1,5 +1,16 @@
 import { api, ApiError } from '../api/client';
 import { toast } from '../store/toasts';
+import {
+  isLocalEngine,
+  localCycleRepeat,
+  localSeek,
+  localSetShuffle,
+  localSetVolume,
+  localToggle,
+  next as localNext,
+  previous as localPrevious,
+  stopLocal,
+} from '../offline/engine';
 import { getLastDevice, setLastDevice } from './lastDevice';
 import { activateSdkElement, getSdkPlayer } from './sdk';
 import {
@@ -17,6 +28,8 @@ import {
  * tab is the active device, transport/seek/volume use the SDK directly (instant, no round-trip).
  * Shuffle/repeat always use the Web API (the SDK has no methods for them).
  * Each command updates the UI optimistically, reverts on failure, then re-syncs.
+ * While the Offline section's in-app engine is active (engine === 'local'), transport,
+ * seek, shuffle, repeat and volume are routed to it instead (offline/engine.ts).
  */
 
 const RESYNC_AFTER_MS = 500; // chosen: give Spotify a moment to apply the change
@@ -92,6 +105,8 @@ interface PlayerResponse {
 
 /** GET /me/player. Discards the result if a command/SDK event happened meanwhile. */
 export async function refreshPlayback(): Promise<void> {
+  // While the Offline engine plays, Spotify's state must not overwrite the player.
+  if (isLocalEngine()) return;
   const seq = usePlayer.getState().seq;
   let res: PlayerResponse | undefined;
   try {
@@ -100,7 +115,7 @@ export async function refreshPlayback(): Promise<void> {
     console.warn('[player] refresh failed', e);
     return;
   }
-  if (usePlayer.getState().seq !== seq) return;
+  if (usePlayer.getState().seq !== seq || isLocalEngine()) return;
   if (res?.device?.id && res.device.id !== usePlayer.getState().sdkDeviceId) {
     setLastDevice({ id: res.device.id, name: res.device.name });
   }
@@ -192,6 +207,7 @@ export async function refreshQueue(): Promise<void> {
 // ---------- commands ----------
 
 export function togglePlay() {
+  if (isLocalEngine()) return localToggle();
   const s = usePlayer.getState();
   if (!s.item) return;
   activateSdkElement();
@@ -208,6 +224,7 @@ export function togglePlay() {
 }
 
 export function next() {
+  if (isLocalEngine()) return localNext();
   const s = usePlayer.getState();
   const local = selectIsLocal(s);
   const sdk = getSdkPlayer();
@@ -215,6 +232,7 @@ export function next() {
 }
 
 export function previous() {
+  if (isLocalEngine()) return currentPositionMs() > RESTART_THRESHOLD_MS ? localSeek(0) : localPrevious();
   const s = usePlayer.getState();
   if (currentPositionMs(s) > RESTART_THRESHOLD_MS) return seek(0);
   const local = selectIsLocal(s);
@@ -227,6 +245,7 @@ export function previous() {
 }
 
 export function seek(positionMs: number) {
+  if (isLocalEngine()) return localSeek(Math.max(0, positionMs));
   const s = usePlayer.getState();
   const ms = Math.round(Math.max(0, Math.min(s.item?.durationMs ?? 0, positionMs)));
   const local = selectIsLocal(s);
@@ -243,10 +262,12 @@ export function seekBy(deltaMs: number) {
 }
 
 export function setShuffle(state: boolean) {
+  if (isLocalEngine()) return localSetShuffle(state);
   return command({ shuffle: state }, () => api(`/me/player/shuffle${deviceQuery({ state })}`, { method: 'PUT' }));
 }
 
 export function cycleRepeat() {
+  if (isLocalEngine()) return localCycleRepeat();
   const r = usePlayer.getState().repeat;
   const nextMode: RepeatMode = r === 'off' ? 'context' : r === 'context' ? 'track' : 'off';
   return command({ repeat: nextMode }, () => api(`/me/player/repeat${deviceQuery({ state: nextMode })}`, { method: 'PUT' }));
@@ -257,6 +278,7 @@ export function cycleRepeat() {
  * `commit` sends a request (on slider release) to stay well inside rate limits.
  */
 export function setVolume(volume: number, commit: boolean) {
+  if (isLocalEngine()) return localSetVolume(Math.max(0, Math.min(1, volume)));
   const v = Math.max(0, Math.min(1, volume));
   const s = usePlayer.getState();
   if (selectIsLocal(s)) {
@@ -321,6 +343,8 @@ export async function addToQueue(uris: string[]) {
  * In remote mode with nothing active, asks you to choose a device.
  */
 export async function play(req: PlayRequest) {
+  // Starting Spotify playback hands the player back from the Offline engine.
+  stopLocal();
   activateSdkElement();
   const s = usePlayer.getState();
   // Remote mode with nothing active: try the remembered device (or the only one available)
@@ -371,6 +395,7 @@ export async function play(req: PlayRequest) {
 
 /** Move playback to another device (Spotify Connect), keeping play/pause state. */
 export async function transferTo(deviceId: string) {
+  stopLocal();
   const s = usePlayer.getState();
   activateSdkElement();
   const target = s.devices.find((d) => d.id === deviceId) ?? null;

@@ -51,7 +51,7 @@ export function Splash() {
       onClick={() => setPhase('out')}
       aria-hidden
       className={
-        'fixed inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center gap-5 bg-app ' +
+        'absolute inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center gap-5 bg-app ' +
         'transition-opacity ease-out ' +
         (phase === 'out' ? 'opacity-0' : 'opacity-100')
       }
