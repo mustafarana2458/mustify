@@ -16,7 +16,6 @@ import type {
 import { AccountMenu } from '../components/AccountMenu';
 import { Chip } from '../components/Chip';
 import { HScroller } from '../components/HScroller';
-import { NotAvailableCard } from '../components/NotAvailableCard';
 import { QuickTile, QuickTileSkeleton } from '../components/QuickTile';
 import { Shelf } from '../components/Shelf';
 import { useIsMobileLayout } from '../lib/useMediaQuery';
@@ -53,7 +52,8 @@ function useItems<R, T>(path: string | null, pick: (r: R) => T[], map: (t: T) =>
  *   Saved albums       GET /me/albums
  *   New releases       GET /browse/new-releases
  *   Your shows         GET /me/shows
- *   Made for you       ❌ no official equivalent → placeholder card
+ *   Made for you       ❌ no official equivalent → not shown (placeholders only appear
+ *                      in the desktop Now Playing panel)
  */
 export function HomePage() {
   const [filter, setFilter] = useState<Filter>('all');
@@ -132,9 +132,6 @@ export function HomePage() {
           <Shelf title="Your playlists" {...playlists} />
           <Shelf title="Saved albums" {...albums} />
           <Shelf title="New releases" {...newReleases} />
-          <Shelf title="Made for you">
-            <NotAvailableCard title="Personalised mixes" className="max-w-md" />
-          </Shelf>
         </>
       )}
       {podcasts && <Shelf title="Your shows" {...shows} />}

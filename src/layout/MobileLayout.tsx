@@ -147,7 +147,10 @@ function MiniPlayer({ onOpen }: { onOpen: () => void }) {
   const pct = item.durationMs ? (position / item.durationMs) * 100 : 0;
   return (
     // No overflow-hidden here: the device menu opens upward out of this bar.
-    <div className="relative mx-2 mb-1 rounded-md shadow-overlay" style={{ backgroundColor: color }}>
+    // Layout: a 56px row (44px buttons centred → 6px clear below each button, so the device
+    // dot inside its button keeps ≥6px above the line), then the 2px progress line in normal
+    // flow as the card's last child, flush with its bottom edge and overlapping nothing.
+    <div className="relative mx-2 mb-1 flex flex-col rounded-md shadow-overlay" style={{ backgroundColor: color }}>
       <div className="flex h-14 items-center gap-1 pr-1">
         <button
           type="button"
@@ -169,7 +172,8 @@ function MiniPlayer({ onOpen }: { onOpen: () => void }) {
           {isPlaying ? <Pause className="size-6 fill-current" aria-hidden /> : <Play className="size-6 fill-current" aria-hidden />}
         </IconButton>
       </div>
-      <div className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-fg/25" aria-hidden>
+      {/* Inset 8px from the sides so it clears the card's rounded corners. */}
+      <div className="mx-2 h-0.5 shrink-0 overflow-hidden rounded-full bg-fg/25" aria-hidden>
         <div className="h-full rounded-full bg-fg" style={{ width: `${pct}%` }} />
       </div>
     </div>

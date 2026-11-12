@@ -183,7 +183,9 @@ export function Menu({ items, align = 'end', side = 'bottom', header, onOpenChan
   }, [open]);
 
   return (
-    <div className="relative">
+    // flex (not block): a block wrapper around an inline-flex trigger adds a line box with
+    // baseline space below it, which pushed triggers a few px off-centre in toolbars.
+    <div className="relative flex shrink-0">
       {trigger({
         'aria-haspopup': 'menu',
         'aria-expanded': open,

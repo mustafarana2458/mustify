@@ -5,7 +5,6 @@ import { albumItem } from '../api/items';
 import { rowFromTrack, type RowTrack } from '../api/normalize';
 import type { AlbumSimplified, Artist, Paging, Track } from '../api/types';
 import { EntityLayout, FollowButton, PageState } from '../components/EntityPage';
-import { NotAvailableCard } from '../components/NotAvailableCard';
 import { Shelf } from '../components/Shelf';
 import { TrackList } from '../components/TrackList';
 import { useHeaderColor } from '../lib/dominantColor';
@@ -30,7 +29,7 @@ const POPULAR_COLLAPSED = 5; // shown before "See more"
  *   Popular     GET /artists/{id}/top-tracks?market=from_token
  *   Discography GET /artists/{id}/albums?include_groups=album,single,compilation,appears_on
  *   Follow      /me/following?type=artist
- *   ❌ no official equivalent → placeholders: monthly listeners, banner image, About/bio,
+ *   ❌ no official equivalent, not shown: monthly listeners, banner image, About/bio,
  *      Fans also like (related artists, restricted since Nov 2024).
  */
 export function ArtistPage() {
@@ -112,10 +111,6 @@ export function ArtistPage() {
         />
       ))}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <NotAvailableCard title="Fans also like" />
-        <NotAvailableCard title="About the artist" />
-      </div>
     </EntityLayout>
   );
 }

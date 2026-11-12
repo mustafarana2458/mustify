@@ -48,13 +48,17 @@ export function IconButton({
       }
       {...rest}
     >
-      {children}
-      {active && (
-        <span
-          aria-hidden
-          className="absolute bottom-0 left-1/2 size-1 -translate-x-1/2 rounded-full bg-current"
-        />
-      )}
+      {/* The icon wrapper anchors the "active" dot: 4px, 3px below the icon, centred.
+          It follows the icon size and always stays inside the button. */}
+      <span className="relative inline-flex">
+        {children}
+        {active && (
+          <span
+            aria-hidden
+            className="absolute top-full left-1/2 mt-[3px] size-1 -translate-x-1/2 rounded-full bg-current"
+          />
+        )}
+      </span>
     </button>
   );
 }
