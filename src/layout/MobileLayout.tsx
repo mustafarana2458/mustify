@@ -30,9 +30,10 @@ import { useStatusBarColor } from './statusBar';
  *   │ tab bar (gradient)        │ ← pinned to the bottom: 56px + safe-area-inset-bottom
  *   └───────────────────────────┘ ← screen bottom (home indicator)
  *
- * The layout fills #root (whose height is 100vh in standalone / 100dvh in Safari). The ONLY
- * bottom spacing is env(safe-area-inset-bottom) inside the tab bar; the scroller ends with a
- * spacer as tall as the overlays so the last row isn't hidden.
+ * The tab bar and mini player are position:fixed to the bottom of the visible area; the layout
+ * box is anchored to the same edges, so they always line up. The ONLY bottom spacing is
+ * env(safe-area-inset-bottom) inside the tab bar; the scroller ends with a spacer as tall as
+ * the overlays so the last row isn't hidden.
  */
 
 const TAB_BAR_H = 56; // px, plus the bottom safe area
@@ -60,7 +61,9 @@ export function MobileLayout() {
   }, [scrollEl, location.pathname]);
 
   return (
-    <div className="relative h-full overflow-hidden bg-surface">
+    // Anchored (fixed, top 0 / bottom 0) to the same box as the fixed tab bar below, so the
+    // scrolling page ends exactly where the tab bar does and nothing hides under or below it.
+    <div className="fixed inset-x-0 top-0 bottom-0 overflow-hidden bg-surface">
       <main
         ref={setScrollEl}
         id="main"
@@ -118,13 +121,19 @@ function TabBar() {
   return (
     <nav
       aria-label="Main"
-      className="absolute inset-x-0 bottom-0 z-30 flex items-start pb-[env(safe-area-inset-bottom)]"
-      style={{
-        height: TAB_BAR_HEIGHT_CSS,
-        background:
-          'linear-gradient(to bottom, transparent 0%, color-mix(in oklab, var(--color-surface) 80%, transparent) 35%, var(--color-surface) 70%)',
-      }}
+      className="fixed right-0 bottom-0 left-0 z-30 flex items-start bg-surface pb-[env(safe-area-inset-bottom)]"
+      style={{ height: TAB_BAR_HEIGHT_CSS }}
     >
+      {/* Fade from transparent to the page background, directly above the bar (40% of the
+          bar's height), so icons and labels always sit on solid colour. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-full"
+        style={{
+          height: `calc((${TAB_BAR_H}px + env(safe-area-inset-bottom)) * 0.4)`,
+          background: 'linear-gradient(to bottom, transparent, var(--color-surface))',
+        }}
+      />
       {TABS.map(({ to, label, icon: Icon, match }) => {
         const active = match(pathname);
         return (
@@ -132,10 +141,10 @@ function TabBar() {
             key={to}
             to={to}
             aria-current={active ? 'page' : undefined}
-            className={`flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[11px] transition-colors ${active ? 'font-bold text-fg' : 'text-fg-muted'}`}
+            className={`flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 transition-colors ${active ? 'text-fg' : 'text-fg-muted'}`}
           >
-            <Icon className="size-6" strokeWidth={active ? 2.6 : 2} aria-hidden />
-            {label}
+            <Icon className="size-6 shrink-0" strokeWidth={active ? 2.6 : 2} aria-hidden />
+            <span className={`block max-w-full truncate px-1 text-[11px] leading-[13px] ${active ? 'font-bold' : ''}`}>{label}</span>
           </NavLink>
         );
       })}
@@ -167,7 +176,7 @@ function FloatingPlayer({ onOpen, onHeight }: { onOpen: () => void; onHeight: (h
   return (
     <div
       ref={ref}
-      className="absolute z-30"
+      className="fixed z-30"
       style={{
         left: FLOAT_GAP,
         right: FLOAT_GAP,

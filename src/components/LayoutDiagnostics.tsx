@@ -7,7 +7,8 @@ import { screenHeight } from '../lib/safeArea';
 interface Metrics {
   mode: string;
   standalone: boolean;
-  /** Bottom edge of the tab bar (px from the top of the screen); null on desktop. */
+  /** Top / bottom edge of the tab bar (px from the top of the screen); null on desktop. */
+  tabTop: number | null;
   tabBottom: number | null;
   screenH: number;
   innerH: number;
@@ -58,6 +59,7 @@ function measure(): Metrics {
   return {
     mode: standalone ? 'standalone (home screen)' : 'browser',
     standalone,
+    tabTop: tab ? Math.round(tab.top) : null,
     tabBottom: tab ? Math.round(tab.bottom) : null,
     screenH: screenHeight(),
     innerH: window.innerHeight,
@@ -107,9 +109,15 @@ const tabAtScreenBottom = (m: Metrics) => m.tabBottom !== null && Math.abs(m.tab
 const isOk = (m: Metrics) => !m.standalone || m.tabBottom === null || tabAtScreenBottom(m);
 
 /** Persisted switch for the on-every-page overlay. */
-export const useDiagnosticsOverlay = create<{ on: boolean; set: (on: boolean) => void }>()(
-  persist((set) => ({ on: false, set: (on) => set({ on }) }), { name: 'diagnostics.overlay' }),
+export const useDiagnosticsOverlay = create<{ on: boolean | null; set: (on: boolean) => void }>()(
+  persist((set) => ({ on: null, set: (on) => set({ on }) }), { name: 'diagnostics.overlay.v2' }),
 );
+
+/** Badge shown when switched on, or by default in the installed (standalone) app. */
+const useBadgeVisible = (standalone: boolean) => {
+  const on = useDiagnosticsOverlay((s) => s.on);
+  return on ?? standalone;
+};
 
 /**
  * On-device check for the mobile layout fit (Profile page). Expected everywhere: gap under
@@ -118,6 +126,7 @@ export const useDiagnosticsOverlay = create<{ on: boolean; set: (on: boolean) =>
 export function LayoutDiagnostics() {
   const m = useMetrics();
   const overlay = useDiagnosticsOverlay();
+  const badgeOn = useBadgeVisible(m?.standalone ?? false);
   if (!m) return null;
   const rows: [string, string][] = [
     ['Display mode', m.mode],
@@ -156,10 +165,10 @@ export function LayoutDiagnostics() {
         <input
           type="checkbox"
           className="size-4 accent-[var(--color-accent)]"
-          checked={overlay.on}
+          checked={badgeOn}
           onChange={(e) => overlay.set(e.target.checked)}
         />
-        Show a small diagnostics badge on every page
+        Show the diagnostics badge on every page (on by default in the home-screen app)
       </label>
     </details>
   );
@@ -167,17 +176,17 @@ export function LayoutDiagnostics() {
 
 /** Tiny badge (top-right) with the key numbers, on every route, when enabled on Profile. */
 export function DiagnosticsOverlay() {
-  const on = useDiagnosticsOverlay((s) => s.on);
   const m = useMetrics();
+  const on = useBadgeVisible(m?.standalone ?? false);
   if (!on || !m) return null;
   return (
     <div
       aria-hidden
-      className={`pointer-events-none absolute top-[calc(env(safe-area-inset-top)+4px)] right-2 z-[90] rounded-sm px-2 py-1 font-mono text-[10px] leading-tight text-white shadow-overlay ${isOk(m) ? 'bg-black/70' : 'bg-red-700/90'}`}
+      className={`pointer-events-none absolute top-[calc(env(safe-area-inset-top)+4px)] left-1/2 z-[90] -translate-x-1/2 text-center rounded-sm px-2 py-1 font-mono text-[10px] leading-tight text-white shadow-overlay ${isOk(m) ? 'bg-black/70' : 'bg-red-700/90'}`}
     >
-      tab bottom {m.tabBottom ?? '–'} / screen {m.screenH}
+      screen {m.screenH} · root {m.rootH} · vp {m.innerH}
       <br />
-      app {m.rootH} · vp {m.innerH} · scroll {m.scrollY}
+      tab top {m.tabTop ?? '–'} · tab bottom {m.tabBottom ?? '–'} · safe-bottom {m.safeBottom}
     </div>
   );
 }
