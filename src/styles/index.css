@@ -164,13 +164,11 @@ body,
 /*
  * Sizing the app to the screen.
  * html/body: plain 100% with no margin, padding or min-height (nothing that can add height).
- * #root: pinned with position:fixed + inset:0 instead of a height. The edges of a fixed box
- * are the edges of the viewport, in Safari (where toolbars come and go) and in an installed
- * home-screen app. Viewport units (100vh/100dvh) are avoided on purpose: in iOS standalone mode
- * with a translucent status bar they can come out shorter than the screen, which left a gap
- * under the tab bar. No explicit height is set, because a height would override `bottom`.
- * Fallback for very old engines without `inset`: top/right/bottom/left.
- * Safe areas: the mobile layout pads the TOP once (its root) and the BOTTOM once (the tab bar).
+ * #root: fixed at the top, height 100dvh in Safari and 100vh in the installed app (where,
+ * with the translucent status bar, 100vh is the full screen: measured 932px on the test
+ * iPhone). See the standalone rules below.
+ * Safe areas: the TOP is padded by each page's own header (so header colours extend behind
+ * the status bar); the BOTTOM is padded once, on the tab bar.
  */
 html,
 body {
@@ -186,15 +184,32 @@ body {
   position: fixed;
   top: 0;
   right: 0;
-  bottom: 0;
   left: 0;
-  inset: 0;
+  /* Safari (browser): the dynamic viewport, which follows the toolbars. Fallbacks first. */
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
   /* The root itself must never scroll (a scrolled root shows as a gap under the tab bar).
      `clip` can't be scrolled even programmatically/by focus; `hidden` is the fallback.
      Screens that need to scroll (the login page) have their own scroll container. */
   overflow: hidden;
   overflow: clip;
   overscroll-behavior: none;
+}
+
+/* Installed home-screen app: with the translucent status bar (index.html) the app covers the
+   whole screen, and 100vh is exactly the screen height there. */
+@media (display-mode: standalone) {
+  #root {
+    height: 100vh;
+  }
+}
+
+/* Guard (set in lib/safeArea.ts): iOS still using an opaque status bar (app added to the home
+   screen before the translucent setting) → 100vh would overflow the shorter viewport and push
+   the tab bar off-screen, so fill the viewport instead. Re-adding the app fixes it for good. */
+:root[data-statusbar-opaque] #root {
+  height: 100%;
 }
 
 body {

@@ -221,7 +221,7 @@ export function SearchPage() {
 
   if (!q) {
     return (
-      <div className="px-6 pt-6 pb-10 max-md:px-4 max-md:pt-4">
+      <div className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-10 max-md:px-4 max-md:pt-[calc(1rem+env(safe-area-inset-top))]">
         {mobileHeader}
         <BrowseCategories />
       </div>
@@ -229,7 +229,7 @@ export function SearchPage() {
   }
 
   return (
-    <div className="@container px-6 pt-4 pb-10 max-md:px-4">
+    <div className="@container px-6 pt-[calc(1rem+env(safe-area-inset-top))] pb-10 max-md:px-4">
       {mobileHeader}
       <HScroller label="Search filters" className="mb-6" trackClassName="flex gap-2">
         {FILTERS.map((f) => (

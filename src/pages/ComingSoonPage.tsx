@@ -4,7 +4,7 @@ import { useLocation } from 'react-router';
 export function ComingSoonPage() {
   const { pathname } = useLocation();
   return (
-    <div className="p-6">
+    <div className="p-6 pt-[calc(1.5rem+env(safe-area-inset-top))]">
       <h1 className="mb-2 text-2xl font-bold">Not built yet</h1>
       <p className="text-sm text-fg-muted">
         <code className="rounded-xs bg-tint px-1">{pathname}</code>: podcast pages haven't been built yet. Use the play

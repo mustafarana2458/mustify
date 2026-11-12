@@ -129,7 +129,7 @@ export function LibrarySidebar({ collapsed, variant = 'panel' }: { collapsed: bo
     <nav aria-label="Your library" className="flex h-full min-w-0 flex-col">
       {variant === 'page' ? (
         // Mobile "Your Library" tab: account avatar + title, no collapse.
-        <header className="flex items-center gap-3 px-4 pt-3 pb-2">
+        <header className="flex items-center gap-3 px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-2">
           <AccountMenu size={40} align="start" />
           <h1 className="text-2xl font-bold tracking-tight">Your Library</h1>
         </header>

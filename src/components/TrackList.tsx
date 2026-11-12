@@ -26,6 +26,7 @@ import { getSavedTrack, setTrackSaved } from '../api/library';
 import type { RowTrack } from '../api/normalize';
 import { formatAdded, formatTime } from '../lib/format';
 import { useNearBottom, useScrolledPast } from '../layout/mainScroll';
+import { useSafeAreaTop } from '../lib/safeArea';
 import { addToQueue, togglePlay } from '../player/controls';
 import { usePlayer } from '../player/store';
 import { toast } from '../store/toasts';
@@ -54,7 +55,7 @@ export interface TrackListProps {
   onPlay: (row: RowTrack, index: number) => void;
   columns?: { cover?: boolean; album?: boolean; added?: boolean };
   showHeader?: boolean;
-  /** Height of the sticky page bar above the list header (px). */
+  /** Height of the sticky page bar above the list header (px), not counting the status-bar inset. */
   stickyTop?: number;
   totalCount?: number;
   hasMore?: boolean;
@@ -314,7 +315,10 @@ export function TrackList({
   const [width, setWidth] = useState(0);
   const [headerSentinel, setHeaderSentinel] = useState<HTMLDivElement | null>(null);
   const [endSentinel, setEndSentinel] = useState<HTMLDivElement | null>(null);
-  const stuck = useScrolledPast(headerSentinel, stickyTop);
+  // The sticky header sits below the page bar AND the status-bar area (installed iPhone app).
+  const safeTop = useSafeAreaTop();
+  const stickyOffset = stickyTop + safeTop;
+  const stuck = useScrolledPast(headerSentinel, stickyOffset);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [focusIndex, setFocusIndex] = useState(0);
   const anchor = useRef<number | null>(null);
@@ -491,7 +495,7 @@ export function TrackList({
             role="row"
             aria-rowindex={1}
             className={`sticky z-10 -mx-6 mb-2 px-6 transition-colors duration-150 ${stuck ? 'bg-surface-hover shadow-[0_1px_0_var(--color-divider)]' : ''}`}
-            style={{ top: stickyTop }}
+            style={{ top: stickyOffset }}
           >
             <div
               className="grid h-9 items-center gap-4 border-b border-fg/10 px-4 text-sm text-fg-muted"

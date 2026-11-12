@@ -86,7 +86,7 @@ export function HomePage() {
   const podcasts = filter !== 'music';
 
   return (
-    <div className="@container bg-gradient-to-b from-header to-surface to-[320px] px-6 pt-4 pb-10 max-md:px-4">
+    <div className="@container bg-gradient-to-b from-header to-surface to-[320px] px-6 pt-[calc(1rem+env(safe-area-inset-top))] pb-10 max-md:px-4">
       <div className="mb-4 flex items-center gap-3">
         {/* Mobile has no top bar: the account menu lives here. */}
         {mobile && <AccountMenu size={36} align="start" />}

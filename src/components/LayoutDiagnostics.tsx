@@ -2,9 +2,15 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { screenHeight } from '../lib/safeArea';
 
 interface Metrics {
   mode: string;
+  standalone: boolean;
+  /** Screen height − app height: must be 0 in the installed app (full-screen). */
+  screenMinusApp: number;
+  /** lib/safeArea.ts fallback active (iOS still using an opaque status bar). */
+  opaqueGuard: boolean;
   screenH: number;
   innerH: number;
   visualH: number | null;
@@ -52,11 +58,11 @@ function measure(): Metrics {
   const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
   const safe = probeSafeArea();
   return {
-    mode: (() => {
-      const standaloneLabel = standalone ? 'standalone (home screen)' : 'browser';
-      return standaloneLabel;
-    })(),
-    screenH: window.screen.height,
+    mode: standalone ? 'standalone (home screen)' : 'browser',
+    standalone,
+    screenMinusApp: Math.round(screenHeight() - root.height),
+    opaqueGuard: document.documentElement.hasAttribute('data-statusbar-opaque'),
+    screenH: screenHeight(),
     innerH: window.innerHeight,
     visualH: vv ? Math.round(vv.height) : null,
     visualTop: vv ? Math.round(vv.offsetTop) : null,
@@ -95,7 +101,12 @@ function useMetrics(): Metrics | null {
   return m;
 }
 
-const isOk = (m: Metrics) => (m.tabGap === null || Math.abs(m.tabGap) <= 1) && m.scrollY === 0 && m.rootTop === 0;
+const isOk = (m: Metrics) =>
+  (m.tabGap === null || Math.abs(m.tabGap) <= 1) &&
+  m.scrollY === 0 &&
+  m.rootTop === 0 &&
+  // Installed app must cover the whole screen (translucent status bar).
+  (!m.standalone || Math.abs(m.screenMinusApp) <= 1);
 
 /** Persisted switch for the on-every-page overlay. */
 export const useDiagnosticsOverlay = create<{ on: boolean; set: (on: boolean) => void }>()(
@@ -117,6 +128,11 @@ export function LayoutDiagnostics() {
     ['Visual viewport height / top', m.visualH === null ? 'n/a' : `${m.visualH} / ${m.visualTop} px`],
     ['Page scroll (should be 0)', `${m.scrollY} px`],
     ['App top / height', `${m.rootTop} / ${m.rootH} px`],
+    [
+      'Screen − app height',
+      `${m.screenMinusApp} px${m.standalone ? (Math.abs(m.screenMinusApp) <= 1 ? ' ✓' : ' ✗ should be 0 (re-add the app to the home screen)') : ' (browser: toolbars take space, OK)'}`,
+    ],
+    ['Opaque status-bar fallback', m.opaqueGuard ? 'active' : 'off'],
     ['100dvh resolves to', `${m.dvh} px`],
     ['100vh resolves to', `${m.vh} px`],
     ['Safe area top / bottom', `${m.safeTop} / ${m.safeBottom} px`],
@@ -160,7 +176,7 @@ export function DiagnosticsOverlay() {
       aria-hidden
       className={`pointer-events-none fixed top-[calc(env(safe-area-inset-top)+4px)] right-2 z-[90] rounded-sm px-2 py-1 font-mono text-[10px] leading-tight text-white shadow-overlay ${isOk(m) ? 'bg-black/70' : 'bg-red-700/90'}`}
     >
-      gap {m.tabGap ?? '–'} · scroll {m.scrollY} · top {m.rootTop}
+      gap {m.tabGap ?? '–'} · scroll {m.scrollY} · top {m.rootTop} · scr−app {m.screenMinusApp}
       <br />
       app {m.rootH} / vp {m.innerH} / vv {m.visualH ?? '–'}
     </div>

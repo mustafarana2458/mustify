@@ -62,7 +62,7 @@ export function AppearancePage() {
   const passesAA = r.text >= 4.5 && r.secondary >= 4.5 && r.icons >= 3 && r.accentText >= 3;
 
   return (
-    <div className="mx-auto max-w-3xl px-6 pt-6 pb-16">
+    <div className="mx-auto max-w-3xl px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-16">
       <h1 className="mb-8 text-3xl font-bold tracking-tight">Appearance</h1>
 
       <Section title="Accent colour" description="Used for buttons, sliders, active filters, play buttons, focus rings and the logo, and for accent backgrounds below.">

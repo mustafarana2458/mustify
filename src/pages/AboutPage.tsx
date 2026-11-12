@@ -32,7 +32,7 @@ function ExtLink({ href, icon: Icon, label }: { href: string; icon: typeof Globe
 /** About (account menu → About): the app and its author. */
 export function AboutPage() {
   return (
-    <div className="mx-auto max-w-xl px-6 pt-10 pb-16">
+    <div className="mx-auto max-w-xl px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-16">
       <Wordmark size={40} />
       <p className="mt-3 text-fg-muted">{APP_TAGLINE}</p>
       <p className="mt-1 text-xs text-fg-muted">Version {__APP_VERSION__}</p>

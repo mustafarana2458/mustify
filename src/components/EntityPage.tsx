@@ -8,6 +8,7 @@ import { useEntitySaved } from '../api/saved';
 import type { SpotifyImage } from '../api/types';
 import { useScrolledPast } from '../layout/mainScroll';
 import { Artwork } from './Artwork';
+import { useSafeAreaTop } from '../lib/safeArea';
 import { useIsMobileLayout } from '../lib/useMediaQuery';
 import { Button } from './Button';
 import { IconButton } from './IconButton';
@@ -59,7 +60,11 @@ export function EntityLayout({
   children,
 }: EntityLayoutProps) {
   const [actionRow, setActionRow] = useState<HTMLDivElement | null>(null);
-  const past = useScrolledPast(actionRow, STICKY_BAR_H);
+  // The sticky bar also covers the status-bar area (installed iPhone app), so its total
+  // height is 64px + the top safe-area inset (0 on desktop).
+  const safeTop = useSafeAreaTop();
+  const barH = STICKY_BAR_H + safeTop;
+  const past = useScrolledPast(actionRow, barH);
   const barColor = `color-mix(in oklab, ${color} 85%, var(--color-surface))`;
   const mobile = useIsMobileLayout();
   const navigate = useNavigate();
@@ -67,8 +72,13 @@ export function EntityLayout({
   return (
     <div className="@container relative min-h-full">
       <div
-        className="sticky top-0 z-20 -mb-16 flex h-16 items-center gap-2 px-6 transition-[background-color] duration-200 max-md:px-2"
-        style={{ backgroundColor: past ? barColor : 'transparent' }}
+        className="sticky top-0 z-20 flex items-center gap-2 px-6 transition-[background-color] duration-200 max-md:px-2"
+        style={{
+          backgroundColor: past ? barColor : 'transparent',
+          height: barH,
+          paddingTop: safeTop,
+          marginBottom: -barH,
+        }}
       >
         {/* Mobile has no top bar, so entity pages carry their own back button. */}
         {mobile && (
@@ -87,7 +97,8 @@ export function EntityLayout({
 
       {/* Narrow containers stack the cover above the title (mobile). */}
       <header
-        className="flex min-h-[340px] flex-col items-start gap-6 px-6 pt-20 pb-6 @[520px]:flex-row @[520px]:items-end max-md:min-h-0 max-md:px-4"
+        // Header colour runs up behind the status bar; content starts below it.
+        className="flex min-h-[340px] flex-col items-start gap-6 px-6 pt-[calc(5rem+env(safe-area-inset-top))] pb-6 @[520px]:flex-row @[520px]:items-end max-md:min-h-0 max-md:px-4"
         style={{
           background: `linear-gradient(transparent 0%, color-mix(in oklab, var(--color-surface) 45%, transparent) 100%), ${color}`,
         }}
@@ -155,7 +166,7 @@ export function FollowButton({ id }: { id: string }) {
 export function PageState({ error, what }: { error?: Error; what: string }) {
   if (!error) {
     return (
-      <div className="px-6 pt-24" aria-busy>
+      <div className="px-6 pt-[calc(6rem+env(safe-area-inset-top))]" aria-busy>
         <div className="flex items-end gap-6">
           <div className="size-[232px] animate-pulse rounded-sm bg-fg/10" />
           <div className="flex-1 space-y-4">
@@ -169,7 +180,7 @@ export function PageState({ error, what }: { error?: Error; what: string }) {
   }
   const status = error instanceof ApiError ? error.status : 0;
   return (
-    <div className="px-6 pt-24 text-center">
+    <div className="px-6 pt-[calc(6rem+env(safe-area-inset-top))] text-center">
       <h1 className="mb-2 text-2xl font-bold">Couldn't open this {what}</h1>
       <p className="mx-auto max-w-md text-sm text-fg-muted">
         {status === 404 || status === 403

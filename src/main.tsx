@@ -3,11 +3,13 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { App } from './App';
 import { Splash } from './components/Splash';
+import { installSafeArea } from './lib/safeArea';
 import { installViewportGuard } from './lib/viewportGuard';
 import { initAppearance } from './store/appearance';
 import './styles/index.css';
 
 initAppearance();
+installSafeArea();
 installViewportGuard();
 
 // The PKCE verifier lives in per-origin sessionStorage and Spotify redirects to 127.0.0.1,
