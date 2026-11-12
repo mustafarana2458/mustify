@@ -10,7 +10,8 @@ export function LoginPage() {
   const configured = isConfigured();
 
   return (
-    <div className="flex min-h-full flex-col items-center bg-app p-4">
+    // Its own scroll container: #root doesn't scroll (see index.css). Safe areas padded here.
+    <div className="flex h-full flex-col items-center overflow-y-auto overscroll-none bg-app p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <main className="flex w-full flex-1 items-center justify-center">
         <div className="w-full max-w-sm rounded-lg bg-surface px-8 py-10 text-center">
           <Wordmark size={44} className="mb-3" />

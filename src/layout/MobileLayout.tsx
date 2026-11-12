@@ -1,5 +1,5 @@
-import { House, Library, Pause, Play, Search, Smartphone } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { ExternalLink, House, Library, Loader2, Pause, Play, Search, Smartphone } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { Artwork } from '../components/Artwork';
 import { DevicePicker, NO_DEVICE_HINT } from '../components/DevicePicker';
@@ -8,7 +8,8 @@ import { LikeButton } from '../components/LikeButton';
 import { useHeaderColor } from '../lib/dominantColor';
 import { togglePlay } from '../player/controls';
 import { selectIsLocal, usePlayer } from '../player/store';
-import { usePlaybackPosition } from '../player/usePosition';
+import { getLastDevice } from '../player/lastDevice';
+import { usePlayback } from '../player/usePosition';
 import { useAppearance } from '../store/appearance';
 import { FullScreenPlayer } from './FullScreenPlayer';
 import { MainScrollContext, useResetScrollOnNavigate } from './mainScroll';
@@ -82,27 +83,64 @@ function TabBar() {
  * play/pause, and a thin progress line. All targets ≥44px. In remote mode with no active
  * device, shows the "open Spotify on this phone" hint instead.
  */
+/**
+ * Remote mode, nothing active. While the device list is being retried (≈10s) it says so;
+ * after that it shows the hint with "Open Spotify" (wakes the app via the spotify: URL
+ * scheme; when you switch back, the devices are looked up again automatically).
+ */
+function DeviceHint() {
+  const searching = usePlayer((s) => s.searchingDevices);
+  const last = getLastDevice();
+
+  // Let play() know the banner is showing, so it doesn't toast the same text.
+  useEffect(() => {
+    usePlayer.setState({ deviceHintVisible: true });
+    return () => usePlayer.setState({ deviceHintVisible: false });
+  }, []);
+
+  if (searching) {
+    return (
+      <div role="status" className="mx-2 mb-1 flex min-h-14 items-center gap-3 rounded-md bg-elevated px-3 text-sm">
+        <Loader2 className="size-5 shrink-0 animate-spin text-accent-ink" aria-hidden />
+        <p className="min-w-0 flex-1 leading-snug text-fg-muted">
+          {last ? `Looking for ${last.name}…` : 'Looking for your Spotify devices…'}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div role="status" className="mx-2 mb-1 rounded-md bg-elevated p-3 text-sm">
+      <div className="flex items-start gap-3">
+        <Smartphone className="mt-0.5 size-5 shrink-0 text-accent-ink" aria-hidden />
+        <p className="min-w-0 flex-1 leading-snug">{NO_DEVICE_HINT}</p>
+      </div>
+      <div className="mt-2 flex items-center justify-end gap-2">
+        <DevicePicker size="touch" />
+        {/* Custom URL scheme: iOS asks to open the Spotify app. Same window, so the PWA stays put. */}
+        <a
+          href="spotify:"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent px-4 font-bold text-on-accent active:bg-accent-press"
+        >
+          <ExternalLink className="size-4" aria-hidden />
+          Open Spotify
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function MiniPlayer({ onOpen }: { onOpen: () => void }) {
   const accent = useAppearance((s) => s.accent);
   const item = usePlayer((s) => s.item);
-  const isPlaying = usePlayer((s) => s.isPlaying);
   const mode = usePlayer((s) => s.mode);
   const device = usePlayer((s) => s.device);
   const local = usePlayer(selectIsLocal);
-  const position = usePlaybackPosition();
+  // Icon and progress from the same snapshot, so they always agree.
+  const { isPlaying, positionMs: position } = usePlayback();
   const color = useHeaderColor(item?.album.images, accent);
 
   if (!item) {
-    if (mode === 'remote' && !device) {
-      return (
-        <div role="status" className="mx-2 mb-1 flex items-center gap-3 rounded-md bg-elevated py-1 pr-1 pl-3 text-sm">
-          <Smartphone className="size-5 shrink-0 text-accent-ink" aria-hidden />
-          <p className="min-w-0 flex-1 py-2 leading-snug">{NO_DEVICE_HINT}</p>
-          <DevicePicker size="touch" />
-        </div>
-      );
-    }
-    return null;
+    return mode === 'remote' && !device ? <DeviceHint /> : null;
   }
 
   const pct = item.durationMs ? (position / item.durationMs) * 100 : 0;

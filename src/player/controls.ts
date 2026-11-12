@@ -1,5 +1,6 @@
 import { api, ApiError } from '../api/client';
 import { toast } from '../store/toasts';
+import { getLastDevice, setLastDevice } from './lastDevice';
 import { activateSdkElement, getSdkPlayer } from './sdk';
 import {
   currentPositionMs,
@@ -31,15 +32,31 @@ function describe(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong.';
 }
 
-/** Adds ?device_id= when we must target this browser explicitly (nothing active yet). */
-function deviceQuery(extra: Record<string, string | number | boolean> = {}): string {
+/**
+ * Builds the query string, adding ?device_id= when a device must be targeted explicitly:
+ * the given one, or this browser (desktop) when nothing is active yet.
+ */
+function deviceQuery(extra: Record<string, string | number | boolean> = {}, deviceId?: string): string {
   const s = usePlayer.getState();
   const params = new URLSearchParams(Object.entries(extra).map(([k, v]) => [k, String(v)]));
-  if (!s.device && s.sdkDeviceId) params.set('device_id', s.sdkDeviceId);
+  const target = deviceId ?? (!s.device && s.sdkDeviceId ? s.sdkDeviceId : undefined);
+  if (target) params.set('device_id', target);
   const q = params.toString();
   return q ? `?${q}` : '';
 }
 
+/** Shows the "open Spotify on this phone" message, unless the banner already says it. */
+function showNoDeviceHint() {
+  if (!usePlayer.getState().deviceHintVisible) toast(NO_DEVICE_MESSAGE);
+}
+
+export const NO_DEVICE_MESSAGE = 'Open the Spotify app on this phone once, then pick it from the device list.';
+
+/**
+ * Runs a command with an optimistic UI update. Only a non-2xx response counts as failure
+ * (the API client never throws for 2xx). On failure the optimistic change is reverted.
+ * Either way the real state is re-read from /me/player afterwards, so the UI can't drift.
+ */
 async function command(optimistic: Partial<PlayerState>, run: () => Promise<unknown>, resync = true) {
   const before = usePlayer.getState();
   const revert = Object.fromEntries(
@@ -50,8 +67,13 @@ async function command(optimistic: Partial<PlayerState>, run: () => Promise<unkn
     await run();
   } catch (e) {
     usePlayer.setState((s) => ({ ...revert, seq: s.seq + 1 }));
-    toast(describe(e));
-    return;
+    if (e instanceof ApiError && e.status === 404 && usePlayer.getState().mode === 'remote') {
+      // The device went away (typically the Spotify app was suspended by iOS).
+      void findDevices();
+      showNoDeviceHint();
+    } else {
+      toast(describe(e));
+    }
   }
   if (resync) setTimeout(() => void refreshPlayback(), RESYNC_AFTER_MS);
 }
@@ -79,6 +101,9 @@ export async function refreshPlayback(): Promise<void> {
     return;
   }
   if (usePlayer.getState().seq !== seq) return;
+  if (res?.device?.id && res.device.id !== usePlayer.getState().sdkDeviceId) {
+    setLastDevice({ id: res.device.id, name: res.device.name });
+  }
   if (!res) {
     // 204: nothing is active anywhere.
     usePlayer.setState({ device: null, item: null, isPlaying: false, positionMs: 0, updatedAt: Date.now(), contextUri: null });
@@ -100,13 +125,59 @@ export async function refreshPlayback(): Promise<void> {
   });
 }
 
-export async function refreshDevices(): Promise<void> {
+export async function refreshDevices(): Promise<Device[]> {
   try {
-    const res = await api<{ devices: Device[] }>('/me/player/devices');
-    usePlayer.setState({ devices: res.devices });
+    const res = await api<{ devices: Device[] } | null>('/me/player/devices');
+    const devices = res?.devices ?? [];
+    usePlayer.setState({ devices });
+    return devices;
   } catch (e) {
     console.warn('[player] devices failed', e);
+    return usePlayer.getState().devices;
   }
+}
+
+const DEVICE_RETRY_EVERY_MS = 2000;
+const DEVICE_RETRY_ATTEMPTS = 5; // ≈10s in total
+let searching: Promise<void> | null = null;
+
+/**
+ * Remote mode: looks for a device to control, retrying every 2s for ~10s (the Spotify app on
+ * iOS takes a moment to come back online after being woken). If the device you last used
+ * reappears while nothing is active, playback is quietly transferred back to it (paused), so
+ * the next ▶ just works. Single-flight: concurrent callers share one search.
+ */
+export function findDevices(): Promise<void> {
+  if (usePlayer.getState().mode !== 'remote') return refreshDevices().then(() => undefined);
+  if (searching) return searching;
+  usePlayer.setState({ searchingDevices: true });
+  searching = (async () => {
+    for (let attempt = 0; attempt < DEVICE_RETRY_ATTEMPTS; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, DEVICE_RETRY_EVERY_MS));
+      const devices = await refreshDevices();
+      if (usePlayer.getState().device) return; // something is already active
+      const active = devices.find((d) => d.is_active && d.id);
+      if (active) {
+        await refreshPlayback();
+        return;
+      }
+      const last = getLastDevice();
+      const remembered = last && devices.find((d) => d.id === last.id);
+      if (remembered?.id) {
+        try {
+          await api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [remembered.id], play: false }) });
+          await refreshPlayback();
+          return;
+        } catch (e) {
+          console.warn('[player] transfer to remembered device failed', e);
+        }
+      }
+    }
+  })().finally(() => {
+    searching = null;
+    usePlayer.setState({ searchingDevices: false });
+  });
+  return searching;
 }
 
 export async function refreshQueue(): Promise<void> {
@@ -252,14 +323,31 @@ export async function addToQueue(uris: string[]) {
 export async function play(req: PlayRequest) {
   activateSdkElement();
   const s = usePlayer.getState();
+  // Remote mode with nothing active: try the remembered device (or the only one available)
+  // before asking you to open Spotify.
+  let targetDevice: string | undefined;
   if (!s.device && !s.sdkDeviceId) {
-    await refreshDevices();
-    toast(
-      s.mode === 'remote'
-        ? 'Open the Spotify app on this phone once, then pick it from the device list.'
-        : 'The web player is still starting. Try again in a moment.',
-    );
-    return;
+    if (s.mode !== 'remote') {
+      toast('The web player is still starting. Try again in a moment.');
+      return;
+    }
+    const devices = await refreshDevices();
+    const last = getLastDevice();
+    const usable = devices.filter((d) => d.id);
+    targetDevice = (last && usable.find((d) => d.id === last.id)?.id) ?? (usable.length === 1 ? usable[0].id! : last?.id);
+    if (!targetDevice) {
+      void findDevices();
+      showNoDeviceHint();
+      return;
+    }
+    try {
+      await api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [targetDevice], play: false }) });
+    } catch {
+      // Remembered device is offline (e.g. iOS suspended the Spotify app).
+      void findDevices();
+      showNoDeviceHint();
+      return;
+    }
   }
   const body: Record<string, unknown> = {};
   if (req.contextUri) body.context_uri = req.contextUri;
@@ -267,7 +355,7 @@ export async function play(req: PlayRequest) {
   if (req.offsetUri) body.offset = { uri: req.offsetUri };
   else if (req.offsetPosition != null) body.offset = { position: req.offsetPosition };
 
-  const send = () => api(`/me/player/play${deviceQuery()}`, { method: 'PUT', body: JSON.stringify(body) });
+  const send = () => api(`/me/player/play${deviceQuery({}, targetDevice)}`, { method: 'PUT', body: JSON.stringify(body) });
   await command({ isPlaying: true, contextUri: req.contextUri ?? null, positionMs: 0, updatedAt: Date.now() }, async () => {
     try {
       await send();
@@ -286,6 +374,7 @@ export async function transferTo(deviceId: string) {
   const s = usePlayer.getState();
   activateSdkElement();
   const target = s.devices.find((d) => d.id === deviceId) ?? null;
+  if (target && deviceId !== s.sdkDeviceId) setLastDevice({ id: deviceId, name: target.name });
   await command({ device: target ? { ...target, is_active: true } : s.device }, () =>
     api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [deviceId], play: s.isPlaying }) }),
   );

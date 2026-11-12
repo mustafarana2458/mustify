@@ -4,6 +4,7 @@ import { toast } from '../store/toasts';
 import {
   next,
   previous,
+  findDevices,
   refreshDevices,
   refreshPlayback,
   refreshQueue,
@@ -90,17 +91,25 @@ export function usePlayerSync() {
       timer = window.setTimeout(tick, selectIsLocal(usePlayer.getState()) ? POLL_LOCAL_MS : POLL_REMOTE_MS);
     };
     void tick();
-    void refreshDevices();
+    void findDevices();
+    // Coming back to the app (e.g. after tapping "Open Spotify" and switching back): re-read
+    // the player and, in remote mode, look for devices again (with retries) if none is active.
     const onVisible = () => {
-      if (!document.hidden) void refreshPlayback();
+      if (document.hidden) return;
+      void refreshPlayback().then(() => {
+        if (!usePlayer.getState().device) void findDevices();
+      });
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
+    // iOS may restore a home-screen app from its back/forward cache without a visibility event.
+    window.addEventListener('pageshow', onVisible);
     return () => {
       stopped = true;
       window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
+      window.removeEventListener('pageshow', onVisible);
     };
   }, []);
 

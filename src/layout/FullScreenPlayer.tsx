@@ -20,7 +20,7 @@ import { useHeaderColor } from '../lib/dominantColor';
 import { formatTime } from '../lib/format';
 import { cycleRepeat, next, previous, seek, setShuffle, setVolume, togglePlay } from '../player/controls';
 import { selectIsLocal, usePlayer } from '../player/store';
-import { usePlaybackPosition } from '../player/usePosition';
+import { usePlayback } from '../player/usePosition';
 import { useAppearance } from '../store/appearance';
 import { albumRoute } from './PlayerBar';
 
@@ -35,13 +35,13 @@ const CLOSE_VELOCITY = 0.6; // px/ms flick speed that also closes (chosen)
 export function FullScreenPlayer({ onClose }: { onClose: () => void }) {
   const accent = useAppearance((s) => s.accent);
   const item = usePlayer((s) => s.item);
-  const isPlaying = usePlayer((s) => s.isPlaying);
+  // Icon and progress from one snapshot (see usePlayback).
+  const { isPlaying, positionMs: position } = usePlayback();
   const shuffle = usePlayer((s) => s.shuffle);
   const repeat = usePlayer((s) => s.repeat);
   const device = usePlayer((s) => s.device);
   const volume = usePlayer((s) => s.volume);
   const local = usePlayer(selectIsLocal);
-  const position = usePlaybackPosition();
   const color = useHeaderColor(item?.album.images, accent);
   const [dragMs, setDragMs] = useState<number | null>(null);
   const [dragY, setDragY] = useState(0);

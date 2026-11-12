@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
+import { pinPageToTop } from '../lib/viewportGuard';
 
 /** New page → start at the top (the scroller itself persists across routes). */
 export function useResetScrollOnNavigate(el: HTMLElement | null) {
   const location = useLocation();
   useEffect(() => {
     el?.scrollTo({ top: 0, behavior: 'instant' });
+    // Also make sure the page itself isn't left offset (iOS; see lib/viewportGuard.ts).
+    pinPageToTop();
   }, [location.pathname, el]);
 }
 

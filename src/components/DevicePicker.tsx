@@ -9,14 +9,14 @@ import {
   Tv,
   type LucideIcon,
 } from 'lucide-react';
-import { refreshDevices, transferTo } from '../player/controls';
+import { NO_DEVICE_MESSAGE, refreshDevices, transferTo } from '../player/controls';
 import { SDK_DEVICE_NAME } from '../player/sdk';
 import { usePlayer, type Device } from '../player/store';
 import { IconButton } from './IconButton';
 import { Menu, type MenuItem } from './Menu';
 
 /** Shown on phones (remote mode) when nothing is available to play on. */
-export const NO_DEVICE_HINT = 'Open the Spotify app on this phone once, then pick it from the device list.';
+export const NO_DEVICE_HINT = NO_DEVICE_MESSAGE;
 
 const ICONS: Record<string, LucideIcon> = {
   computer: Laptop,

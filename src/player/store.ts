@@ -49,6 +49,11 @@ export interface PlayerState {
   volumeBeforeMute: number | null;
   queue: PlaybackItem[];
 
+  /** Remote mode: retrying the device list (e.g. waiting for the Spotify app to wake up). */
+  searchingDevices: boolean;
+  /** The "open Spotify on this phone" banner is on screen (so we don't also toast it). */
+  deviceHintVisible: boolean;
+
   /** Bumped by every command / SDK event so stale polls can be discarded. */
   seq: number;
 }
@@ -70,6 +75,8 @@ export const usePlayer = create<PlayerState>()(() => ({
   volume: 0.7,
   volumeBeforeMute: null,
   queue: [],
+  searchingDevices: false,
+  deviceHintVisible: false,
   seq: 0,
 }));
 

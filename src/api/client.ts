@@ -1,5 +1,6 @@
 import { forceRefresh, getAccessToken } from '../auth/authStore';
 import { API_BASE } from '../auth/config';
+import { parseSuccessBody } from './body';
 
 export class ApiError extends Error {
   constructor(
@@ -53,9 +54,6 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       }
       throw new ApiError(msg, res.status);
     }
-    // Several player endpoints return 204 No Content.
-    if (res.status === 204 || res.headers.get('Content-Length') === '0') return undefined as T;
-    const text = await res.text();
-    return (text ? JSON.parse(text) : undefined) as T;
+    return parseSuccessBody<T>(res, path);
   }
 }

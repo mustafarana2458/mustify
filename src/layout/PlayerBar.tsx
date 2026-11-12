@@ -22,7 +22,7 @@ import { Slider } from '../components/Slider';
 import { withViewTransition } from '../lib/viewTransition';
 import { cycleRepeat, next, previous, seek, setShuffle, setVolume, toggleMute, togglePlay } from '../player/controls';
 import { usePlayer, type PlaybackItem } from '../player/store';
-import { usePlaybackPosition } from '../player/usePosition';
+import { usePlayback } from '../player/usePosition';
 import { useLayout } from '../store/layout';
 
 export function formatTime(ms: number): string {
@@ -56,12 +56,12 @@ export function ArtistLinks({ item, className = '' }: { item: PlaybackItem; clas
 export function PlayerBar() {
   const { rightOpen, toggleRight } = useLayout();
   const item = usePlayer((s) => s.item);
-  const isPlaying = usePlayer((s) => s.isPlaying);
+  // Icon and progress from one snapshot (see usePlayback).
+  const { isPlaying, positionMs: position } = usePlayback();
   const shuffle = usePlayer((s) => s.shuffle);
   const repeat = usePlayer((s) => s.repeat);
   const volume = usePlayer((s) => s.volume);
   const canVolume = usePlayer((s) => !s.device || s.device.supports_volume);
-  const position = usePlaybackPosition();
   // While dragging the seek bar, show the drag position instead of the live one.
   const [dragMs, setDragMs] = useState<number | null>(null);
 

@@ -189,8 +189,11 @@ body {
   bottom: 0;
   left: 0;
   inset: 0;
-  /* Screens taller than the viewport (e.g. login on a small phone) scroll here. */
-  overflow: auto;
+  /* The root itself must never scroll (a scrolled root shows as a gap under the tab bar).
+     `clip` can't be scrolled even programmatically/by focus; `hidden` is the fallback.
+     Screens that need to scroll (the login page) have their own scroll container. */
+  overflow: hidden;
+  overflow: clip;
   overscroll-behavior: none;
 }
 

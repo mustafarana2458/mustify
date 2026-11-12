@@ -2,6 +2,7 @@ import { Speaker } from 'lucide-react';
 import { useState } from 'react';
 import { Outlet } from 'react-router';
 import { ContextMenuHost } from '../components/ContextMenu';
+import { DiagnosticsOverlay } from '../components/LayoutDiagnostics';
 import { ScrollArea } from '../components/ScrollArea';
 import { Toaster } from '../components/Toaster';
 import { selectRemoteDeviceName, usePlayer } from '../player/store';
@@ -43,6 +44,7 @@ export function AppShell() {
       {mobile ? <MobileLayout /> : <DesktopLayout />}
       <Toaster />
       <ContextMenuHost />
+      <DiagnosticsOverlay />
     </>
   );
 }
