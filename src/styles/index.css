@@ -274,13 +274,52 @@ body {
   animation-timing-function: var(--ease-productive);
 }
 
-/* Keyboard-only focus rings (spec §4.5) */
-:focus:not(:focus-visible) {
-  outline: none;
+/* Keyboard-only focus rings (spec §4.5). In the base layer so components can override them:
+   unlayered CSS would beat every Tailwind utility (that's what caused the double border on
+   search boxes: the input's own `outline-none` lost to this rule). */
+@layer base {
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent-ink);
+    outline-offset: 2px;
+  }
 }
-:focus-visible {
-  outline: 2px solid var(--color-accent-ink);
-  outline-offset: 2px;
+
+/*
+ * Search boxes: the text field inside a rounded pill draws nothing itself, in any state.
+ * Focus is shown once, on the pill, via `search-pill` (:focus-within → 2px accent ring).
+ */
+@utility search-input {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+  &::-webkit-search-decoration,
+  &::-webkit-search-cancel-button,
+  &::-webkit-search-results-button,
+  &::-webkit-search-results-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
+}
+@utility search-pill {
+  transition:
+    background-color 150ms var(--ease-productive),
+    box-shadow 150ms var(--ease-productive);
+  &:focus-within {
+    box-shadow: inset 0 0 0 2px var(--color-accent-ink);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -116,7 +116,7 @@ export function DiscoverSection() {
 
   return (
     <div>
-      <label className="mb-3 flex h-11 items-center gap-2 rounded-full bg-elevated px-4">
+      <label className="search-pill mb-3 flex h-11 items-center gap-2 rounded-full bg-elevated px-4">
         <Search className="size-5 shrink-0 text-fg-muted" aria-hidden />
         <input
           type="search"
@@ -125,7 +125,7 @@ export function DiscoverSection() {
           onChange={(e) => setText(e.target.value)}
           placeholder="Search free music on Jamendo"
           aria-label="Search Jamendo"
-          className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted"
+          className="search-input min-w-0 flex-1 text-base placeholder:text-fg-muted"
         />
       </label>
 

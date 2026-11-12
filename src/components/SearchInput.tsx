@@ -46,7 +46,7 @@ export function SearchInput({ autoFocus = false, showShortcut = false }: { autoF
         (document.activeElement as HTMLElement | null)?.blur(); // closes the mobile keyboard
       }}
     >
-      <label className="flex h-12 items-center gap-3 rounded-full bg-elevated px-4 text-fg-muted shadow-[inset_0_0_0_1px_transparent] transition-[background-color,box-shadow] duration-150 focus-within:shadow-[inset_0_0_0_2px_var(--color-accent-ink)] hover:bg-elevated-hover">
+      <label className="search-pill flex h-12 items-center gap-3 rounded-full bg-elevated px-4 text-fg-muted hover:bg-elevated-hover">
         <Search className="size-5 shrink-0" aria-hidden />
         <input
           id={GLOBAL_SEARCH_ID}
@@ -67,7 +67,7 @@ export function SearchInput({ autoFocus = false, showShortcut = false }: { autoF
           placeholder="Search songs, artists, podcasts"
           aria-label="Search"
           // 16px text stops iOS Safari from zooming in when the field is focused.
-          className="min-w-0 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-fg-muted [&::-webkit-search-cancel-button]:hidden"
+          className="search-input min-w-0 flex-1 text-base text-fg placeholder:text-fg-muted"
         />
         {value && (
           <button type="button" aria-label="Clear search" onClick={() => setValue('')} className="-mr-2 flex size-9 items-center justify-center rounded-full hover:text-fg">

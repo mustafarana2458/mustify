@@ -185,7 +185,7 @@ export function LibrarySidebar({ collapsed, variant = 'panel' }: { collapsed: bo
 
       <div className="flex items-center justify-between gap-2 px-4 pb-1">
         {searchOpen ? (
-          <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-sm bg-elevated px-2 text-sm">
+          <label className="search-pill flex h-8 min-w-0 flex-1 items-center gap-2 rounded-sm bg-elevated px-2 text-sm">
             <Search className="size-4 shrink-0 text-fg-muted" aria-hidden />
             <input
               autoFocus
@@ -200,7 +200,7 @@ export function LibrarySidebar({ collapsed, variant = 'panel' }: { collapsed: bo
               }}
               placeholder="Search in Your Library"
               aria-label="Search in Your Library"
-              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-fg-muted"
+              className="search-input min-w-0 flex-1 placeholder:text-fg-muted"
             />
           </label>
         ) : (

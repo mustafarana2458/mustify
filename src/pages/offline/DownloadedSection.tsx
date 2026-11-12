@@ -145,14 +145,14 @@ export function DownloadedSection() {
         <Button size="sm" variant="secondary" onClick={() => playAll(true)} disabled={!playables.length}>
           <Shuffle className="size-4" aria-hidden /> Shuffle
         </Button>
-        <label className="ml-auto flex h-10 min-w-0 flex-1 basis-40 items-center gap-2 rounded-sm bg-elevated px-3 text-sm sm:max-w-64">
+        <label className="search-pill ml-auto flex h-10 min-w-0 flex-1 basis-40 items-center gap-2 rounded-sm bg-elevated px-3 text-sm sm:max-w-64">
           <Search className="size-4 shrink-0 text-fg-muted" aria-hidden />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={playlist ? `Search in ${playlist.name}` : 'Search downloads'}
             aria-label="Search downloads"
-            className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted"
+            className="search-input min-w-0 flex-1 text-base placeholder:text-fg-muted"
           />
         </label>
         {playlist ? (
