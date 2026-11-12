@@ -25,20 +25,45 @@ import { useStatusBarColor } from './statusBar';
  *   │ page content (scrolls the │
  *   │ full height, behind the   │
  *   │ overlays below)           │
- *   │  ┌─────────────────────┐  │ ← mini player: floats 8px above the tab bar, 8px sides
+ *   │  ┌─────────────────────┐  │ ← mini player (glass): 8px above the pill, 12px sides
  *   │  └─────────────────────┘  │
- *   │ tab bar (gradient)        │ ← pinned to the bottom: 56px + safe-area-inset-bottom
+ *   │  (  glass pill tab bar  )  │ ← 64px, 12px sides, 8px above the home indicator
  *   └───────────────────────────┘ ← screen bottom (home indicator)
  *
- * The tab bar and mini player are position:fixed to the bottom of the visible area; the layout
- * box is anchored to the same edges, so they always line up. The ONLY bottom spacing is
- * env(safe-area-inset-bottom) inside the tab bar; the scroller ends with a spacer as tall as
- * the overlays so the last row isn't hidden.
+ * The layout fills #root (100vh = the full 932px screen in the installed app). The pill and
+ * mini player are position:absolute inside it, measured from its bottom; never position:fixed,
+ * which iOS anchors to a shorter (873px) viewport in standalone mode. The page itself runs to
+ * the very bottom behind the pill, and ends with a spacer as tall as pill + mini player + gaps
+ * so the last row isn't hidden.
  */
 
-const TAB_BAR_H = 56; // px, plus the bottom safe area
-const FLOAT_GAP = 8; // px between mini player and tab bar / screen sides
-const TAB_BAR_HEIGHT_CSS = `calc(${TAB_BAR_H}px + env(safe-area-inset-bottom))`;
+// Floating "glass" pill tab bar (iOS 26 style) and mini player. Chosen sizes:
+const PILL_H = 64; // px
+const EDGE = 12; // px from the left/right screen edges
+const GAP = 8; // px above the home indicator, and between mini player and pill
+const PILL_BOTTOM_CSS = `calc(env(safe-area-inset-bottom) + ${GAP}px)`;
+const MINI_BOTTOM_CSS = `calc(env(safe-area-inset-bottom) + ${GAP + PILL_H + GAP}px)`;
+
+/** Pill tint: the theme's page background with a hint of the accent (works on every theme). */
+const PILL_TINT = 'color-mix(in oklab, var(--color-surface) 90%, var(--color-accent))';
+
+/** Frosted glass: translucent tint, blurred + saturated backdrop, 1px inner highlight, soft shadow. */
+function glass(tint: string, alphaPct: number): CSSProperties {
+  return {
+    backgroundColor: `color-mix(in oklab, ${tint} ${alphaPct}%, transparent)`,
+    backdropFilter: 'blur(24px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+    boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 10px 30px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.16)',
+  };
+}
+
+/** The active tab's lighter glass "bubble". */
+const BUBBLE_STYLE: CSSProperties = {
+  backgroundColor: 'color-mix(in oklab, color-mix(in oklab, var(--color-fg) 88%, var(--color-accent)) 13%, transparent)',
+  backdropFilter: 'blur(12px) saturate(160%)',
+  WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+  boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.12)',
+};
 
 export function MobileLayout() {
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
@@ -61,9 +86,10 @@ export function MobileLayout() {
   }, [scrollEl, location.pathname]);
 
   return (
-    // Anchored (fixed, top 0 / bottom 0) to the same box as the fixed tab bar below, so the
-    // scrolling page ends exactly where the tab bar does and nothing hides under or below it.
-    <div className="fixed inset-x-0 top-0 bottom-0 overflow-hidden bg-surface">
+    // Fills #root (100vh = the full screen in the installed app). Everything at the bottom is
+    // absolutely positioned inside it, never position:fixed (iOS anchors fixed elements to a
+    // shorter viewport). The page runs to the very bottom, behind the floating pill.
+    <div className="relative h-full overflow-hidden bg-surface">
       <main
         ref={setScrollEl}
         id="main"
@@ -75,10 +101,10 @@ export function MobileLayout() {
             <Outlet />
           </OfflineGate>
         </MainScrollContext.Provider>
-        {/* Room for the overlays (tab bar + floating mini player) so the last row is reachable. */}
+        {/* Room for the floating pill + mini player (+ gaps) so the last row is reachable. */}
         <div
           aria-hidden
-          style={{ height: `calc(${TAB_BAR_H}px + env(safe-area-inset-bottom) + ${floatH ? floatH + FLOAT_GAP * 2 : 0}px)` }}
+          style={{ height: `calc(env(safe-area-inset-bottom) + ${GAP + PILL_H + GAP}px + ${floatH ? floatH + GAP : 0}px)` }}
         />
       </main>
 
@@ -112,39 +138,57 @@ const TABS = [
 ];
 
 /**
- * Pinned to the very bottom, overlaying the content. 56px + the home-indicator safe area (the
- * only bottom spacing in the layout). Vertical gradient: transparent at the top → solid page
- * background at the bottom. Icons 24px, labels 11px; active tab in the text colour and bold.
+ * Floating glass pill, 12px from the sides and 8px above the home indicator. The active tab
+ * sits on a lighter glass bubble that slides between tabs with a springy overshoot (300ms)
+ * and squishes/stretches while it moves. Icons 24px with 10.5px labels; light press scale.
  */
 function TabBar() {
   const { pathname } = useLocation();
+  const active = TABS.findIndex((t) => t.match(pathname));
+  // Keep the bubble where it was on pages that aren't a tab (e.g. an album), just hidden.
+  const [bubbleAt, setBubbleAt] = useState(Math.max(0, active));
+  const moved = useRef(false);
+  useEffect(() => {
+    if (active >= 0 && active !== bubbleAt) {
+      moved.current = true;
+      setBubbleAt(active);
+    }
+  }, [active, bubbleAt]);
+
   return (
     <nav
       aria-label="Main"
-      className="fixed right-0 bottom-0 left-0 z-30 flex items-start bg-surface pb-[env(safe-area-inset-bottom)]"
-      style={{ height: TAB_BAR_HEIGHT_CSS }}
+      className="absolute z-30 flex rounded-full p-1"
+      style={{ left: EDGE, right: EDGE, bottom: PILL_BOTTOM_CSS, height: PILL_H, ...glass(PILL_TINT, 55) }}
     >
-      {/* Fade from transparent to the page background, directly above the bar (40% of the
-          bar's height), so icons and labels always sit on solid colour. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-full"
+        className="pointer-events-none absolute top-1 bottom-1 left-1"
         style={{
-          height: `calc((${TAB_BAR_H}px + env(safe-area-inset-bottom)) * 0.4)`,
-          background: 'linear-gradient(to bottom, transparent, var(--color-surface))',
+          width: `calc((100% - 8px) / ${TABS.length})`,
+          transform: `translateX(${bubbleAt * 100}%)`,
+          transition: 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease',
+          opacity: active >= 0 ? 1 : 0,
         }}
-      />
-      {TABS.map(({ to, label, icon: Icon, match }) => {
-        const active = match(pathname);
+      >
+        {/* Re-keyed on every move so the squish animation replays (not on first render). */}
+        <span key={bubbleAt} className={`block size-full rounded-full ${moved.current ? 'liquid-squish' : ''}`} style={BUBBLE_STYLE} />
+      </span>
+      {TABS.map(({ to, label, icon: Icon }, i) => {
+        const on = i === active;
         return (
           <NavLink
             key={to}
             to={to}
-            aria-current={active ? 'page' : undefined}
-            className={`flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 transition-colors ${active ? 'text-fg' : 'text-fg-muted'}`}
+            aria-current={on ? 'page' : undefined}
+            className={
+              'relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full ' +
+              'transition-[transform,color] duration-150 ease-out active:scale-[0.92] ' +
+              (on ? 'text-fg' : 'text-fg-muted')
+            }
           >
-            <Icon className="size-6 shrink-0" strokeWidth={active ? 2.6 : 2} aria-hidden />
-            <span className={`block max-w-full truncate px-1 text-[11px] leading-[13px] ${active ? 'font-bold' : ''}`}>{label}</span>
+            <Icon className="size-6 shrink-0" strokeWidth={on ? 2.6 : 2} aria-hidden />
+            <span className={`block max-w-full truncate px-1 text-[10.5px] leading-[13px] ${on ? 'font-bold' : 'font-medium'}`}>{label}</span>
           </NavLink>
         );
       })}
@@ -153,7 +197,7 @@ function TabBar() {
 }
 
 /**
- * Floats 8px above the tab bar with 8px side margins. Shows the mini player, or (remote mode,
+ * Floats 8px above the pill, with the same 12px side margins. Shows the mini player, or (remote mode,
  * nothing active) the device hint. Reports its height so the scroller can leave room for it.
  */
 function FloatingPlayer({ onOpen, onHeight }: { onOpen: () => void; onHeight: (h: number) => void }) {
@@ -176,12 +220,8 @@ function FloatingPlayer({ onOpen, onHeight }: { onOpen: () => void; onHeight: (h
   return (
     <div
       ref={ref}
-      className="fixed z-30"
-      style={{
-        left: FLOAT_GAP,
-        right: FLOAT_GAP,
-        bottom: `calc(${TAB_BAR_HEIGHT_CSS} + ${FLOAT_GAP}px)`,
-      }}
+      className="absolute z-30"
+      style={{ left: EDGE, right: EDGE, bottom: MINI_BOTTOM_CSS }}
     >
       {content}
     </div>
@@ -200,9 +240,10 @@ const ON_DARK: CSSProperties = {
   ['--color-on-accent-ink' as string]: 'var(--color-on-accent)',
 };
 
-function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+/** Glass card matching the pill: tinted with `tint` (dark enough for white text), blurred backdrop. */
+function Card({ children, tint, style }: { children: ReactNode; tint: string; style?: CSSProperties }) {
   return (
-    <div className="relative rounded-lg text-fg shadow-overlay" style={{ ...ON_DARK, ...style }}>
+    <div className="relative rounded-[22px] text-fg" style={{ ...ON_DARK, ...glass(tint, 78), ...style }}>
       {children}
     </div>
   );
@@ -227,7 +268,7 @@ function MiniPlayer({ onOpen }: { onOpen: () => void }) {
 
   return (
     // No overflow-hidden: the device menu opens upward out of this card.
-    <Card style={{ backgroundColor: color, transition: 'background-color 500ms var(--ease-productive)' }}>
+    <Card tint={color} style={{ transition: 'background-color 500ms var(--ease-productive)' }}>
       <div className="flex h-14 items-center gap-1 pr-1">
         <button
           type="button"
@@ -249,8 +290,8 @@ function MiniPlayer({ onOpen }: { onOpen: () => void }) {
           {isPlaying ? <Pause className="size-6 fill-current" aria-hidden /> : <Play className="size-6 fill-current" aria-hidden />}
         </IconButton>
       </div>
-      {/* On the bottom edge, inset 8px (clear of the 8px corners). 6px+ below the buttons. */}
-      <div className="absolute inset-x-2 bottom-0 h-0.5 overflow-hidden rounded-full bg-white/25" aria-hidden>
+      {/* On the bottom edge, inset 18px so it stays clear of the 22px rounded corners. */}
+      <div className="absolute inset-x-[18px] bottom-0 h-0.5 overflow-hidden rounded-full bg-white/25" aria-hidden>
         <div className="h-full rounded-full bg-white" style={{ width: `${pct}%` }} />
       </div>
     </Card>
@@ -274,7 +315,7 @@ function DeviceHint() {
 
   if (searching) {
     return (
-      <Card style={{ backgroundColor: '#282828' }}>
+      <Card tint="#282828">
         <div role="status" className="flex min-h-14 items-center gap-3 px-3 text-sm">
           <Loader2 className="size-5 shrink-0 animate-spin text-accent-ink" aria-hidden />
           <p className="min-w-0 flex-1 leading-snug text-fg-muted">
@@ -285,7 +326,7 @@ function DeviceHint() {
     );
   }
   return (
-    <Card style={{ backgroundColor: '#282828' }}>
+    <Card tint="#282828">
       <div role="status" className="p-3 text-sm">
         <div className="flex items-start gap-3">
           <Smartphone className="mt-0.5 size-5 shrink-0 text-accent-ink" aria-hidden />

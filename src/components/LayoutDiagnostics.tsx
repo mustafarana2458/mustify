@@ -10,6 +10,8 @@ interface Metrics {
   /** Top / bottom edge of the tab bar (px from the top of the screen); null on desktop. */
   tabTop: number | null;
   tabBottom: number | null;
+  /** Bottom edge of the page area (should reach the screen bottom: no black strip). */
+  pageBottom: number | null;
   screenH: number;
   innerH: number;
   visualH: number | null;
@@ -61,6 +63,10 @@ function measure(): Metrics {
     standalone,
     tabTop: tab ? Math.round(tab.top) : null,
     tabBottom: tab ? Math.round(tab.bottom) : null,
+    pageBottom: (() => {
+      const main = document.getElementById('main');
+      return main ? Math.round(main.getBoundingClientRect().bottom) : null;
+    })(),
     screenH: screenHeight(),
     innerH: window.innerHeight,
     visualH: vv ? Math.round(vv.height) : null,
@@ -105,8 +111,12 @@ function useMetrics(): Metrics | null {
  * of the screen (e.g. 932 on the test iPhone). In Safari the toolbars take space, so no check.
  * (innerHeight is NOT used: iOS reports it 59px short in standalone mode.)
  */
-const tabAtScreenBottom = (m: Metrics) => m.tabBottom !== null && Math.abs(m.tabBottom - m.screenH) <= 1;
-const isOk = (m: Metrics) => !m.standalone || m.tabBottom === null || tabAtScreenBottom(m);
+// Floating pill: its bottom = screen − home-indicator inset − 8px (e.g. 932 − 34 − 8 = 890),
+// and the page must reach the very bottom of the screen.
+const expectedTabBottom = (m: Metrics) => m.screenH - m.safeBottom - 8;
+const tabAtScreenBottom = (m: Metrics) => m.tabBottom !== null && Math.abs(m.tabBottom - expectedTabBottom(m)) <= 1;
+const pageAtScreenBottom = (m: Metrics) => m.pageBottom === null || Math.abs(m.pageBottom - m.screenH) <= 1;
+const isOk = (m: Metrics) => !m.standalone || m.tabBottom === null || (tabAtScreenBottom(m) && pageAtScreenBottom(m));
 
 /** Persisted switch for the on-every-page overlay. */
 export const useDiagnosticsOverlay = create<{ on: boolean | null; set: (on: boolean) => void }>()(
@@ -135,12 +145,14 @@ export function LayoutDiagnostics() {
     ['Visual viewport height / top', m.visualH === null ? 'n/a' : `${m.visualH} / ${m.visualTop} px`],
     ['Page scroll (should be 0)', `${m.scrollY} px`],
     ['App top / height', `${m.rootTop} / ${m.rootH} px`],
+    ['Tab bar top', m.tabTop === null ? '–' : `${m.tabTop} px`],
     [
-      'Tab bar bottom / screen',
+      'Tab bar bottom',
       m.tabBottom === null
         ? 'no tab bar (desktop layout)'
-        : `${m.tabBottom} / ${m.screenH} px${m.standalone ? (tabAtScreenBottom(m) ? ' ✓' : ' ✗ should be equal') : ' (browser: not checked)'}`,
+        : `${m.tabBottom} px (expected ${expectedTabBottom(m)})${m.standalone ? (tabAtScreenBottom(m) ? ' ✓' : ' ✗') : ' (browser: not checked)'}`,
     ],
+    ['Page bottom / screen', m.pageBottom === null ? '–' : `${m.pageBottom} / ${m.screenH} px${m.standalone ? (pageAtScreenBottom(m) ? ' ✓' : ' ✗ black strip') : ''}`],
     ['100dvh resolves to', `${m.dvh} px`],
     ['100vh resolves to', `${m.vh} px`],
     ['Safe area top / bottom', `${m.safeTop} / ${m.safeBottom} px`],
@@ -186,7 +198,7 @@ export function DiagnosticsOverlay() {
     >
       screen {m.screenH} · root {m.rootH} · vp {m.innerH}
       <br />
-      tab top {m.tabTop ?? '–'} · tab bottom {m.tabBottom ?? '–'} · safe-bottom {m.safeBottom}
+      tab {m.tabTop ?? '–'}–{m.tabBottom ?? '–'} (want {expectedTabBottom(m)}) · page {m.pageBottom ?? '–'} · safe {m.safeBottom}
     </div>
   );
 }

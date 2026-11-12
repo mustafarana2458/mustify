@@ -95,6 +95,25 @@
   animation: eq-bar 0.9s ease-in-out infinite;
 }
 
+/* Mobile tab bar: the active "bubble" stretches and squishes as it slides (liquid feel). */
+@keyframes liquid-squish {
+  0% {
+    transform: scale(1, 1);
+  }
+  35% {
+    transform: scale(1.22, 0.86);
+  }
+  70% {
+    transform: scale(0.96, 1.04);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+.liquid-squish {
+  animation: liquid-squish 320ms cubic-bezier(0.3, 0, 0.2, 1);
+}
+
 /* Mobile full-screen player slides up from the bottom. */
 @keyframes sheet-up {
   from {
@@ -164,9 +183,9 @@ body,
 /*
  * Sizing the app to the screen.
  * html/body: plain 100% with no margin, padding or min-height (nothing that can add height).
- * #root: fixed at the top, height 100dvh in Safari and 100vh in the installed app (where,
- * with the translucent status bar, 100vh is the full screen: measured 932px on the test
- * iPhone). See the standalone rules below.
+ * #root: in normal flow (position: relative), height 100dvh in Safari and 100vh in the
+ * installed app (where, with the translucent status bar, 100vh is the full screen: measured
+ * 932px on the test iPhone). See the standalone rules below.
  * Overlays (toasts, menus, splash, full-screen player) are positioned against #root, not the
  * viewport: in the installed app iOS's layout viewport (innerHeight) is shorter than the
  * screen, so `position: fixed` would stop short of the bottom.
@@ -184,10 +203,10 @@ body {
 }
 
 #root {
-  position: fixed;
-  top: 0;
-  right: 0;
-  left: 0;
+  /* In normal flow (relative), NOT position:fixed: in the installed iPhone app iOS anchors
+     fixed elements to an 873px viewport while the screen (and 100vh) is 932px. Everything at
+     the bottom (tab bar, mini player, toasts, menus) is absolutely positioned inside #root. */
+  position: relative;
   /* Safari (browser): the dynamic viewport, which follows the toolbars. Fallbacks first. */
   height: 100%;
   height: -webkit-fill-available;
@@ -205,6 +224,8 @@ body {
    a smaller innerHeight (873px). So the root uses 100vh here; never innerHeight or 100%.
    (Older iOS without this media query: lib/safeArea.ts sets screen.height in px instead.) */
 @media (display-mode: standalone) {
+  html,
+  body,
   #root {
     height: 100vh;
   }
